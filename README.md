@@ -12,9 +12,10 @@ Díly se renderují v prohlížeči přes OpenSCAD WASM (oficiální snapshot 20
 - **Řetězení:** klik na zelenou šipku na volném konci → výběr dílu, který se připojí.
 - **Spoj na zacvaknutí:** každý konec je buď **s čepy** (pružné jazýčky na bocích s kuželovým čepem, přesahují 10 mm přes konec), nebo **s otvory** (kulaté díry v bočních stěnách). Jazýčky se zasunou dovnitř sousedního dílu a čep zacvakne do díry. Pohlaví konců se určí automaticky: připojený konec je opačný než soused, ostatní konce dílu pokračují stejně.
 - **Rozměry:** vnitřní šířka, výška, délka (u L a + délka ramene). Navazující díly se posunou okamžitě, přerenderuje se jen změněný díl.
-- **Výřezy (žebrování):** průhledové výřezy skrz **boky**, **dno** a **kryt**, mezi nimi zůstávají žebra. U každého jde zapnout a nastavit šířku výřezu, šířku žebra a okraj. Na koncích se spoji se nevyřezává.
+- **Výřezy (žebrování):** průhledové výřezy skrz **boky**, **dno** a **kryt**, mezi nimi zůstávají žebra. U každého jde zapnout a nastavit šířku výřezu, šířku žebra, okraj a **sklon** (výchozí 45°, 0° = rovné). Na koncích se spoji se nevyřezává. Šikmé výřezy v bocích mají na protější stěně opačný sklon, takže z vnějšku vypadají obě strany stejně.
+- **Zkosení:** horní vnější hrany stěn a svislé vnější hrany na koncích u spojů (mezi díly vznikne drážka do V). Velikost je 0 až (tloušťka stěny − 0,6 mm). Stejné zkosení dostane i kryt.
 - **Kryt na zacvaknutí:** kryt drží límcem zasunutým do kanálu. Čepy na límci zacvaknou do otvorů pod horní hranou stěn. Díl s krytem má tyto otvory navíc, proto je v seznamu jako samostatná varianta.
-- Rozměry, výřezy i kryt jdou nastavit **po jednom dílu** (klik na díl), nebo tlačítkem „Použít … na všechny díly“ **najednou**. Nový díl převezme nastavení od dílu, na který se připojuje.
+- Rozměry, zkosení, výřezy i kryt jdou nastavit **po jednom dílu** (klik na díl), nebo tlačítkem „Použít … na všechny díly“ **najednou**. Nový díl převezme nastavení od dílu, na který se připojuje.
 - **Celá sestava:** tloušťka stěny, dna a krytu, vůle spojů, výška čepu spoje a výška čepu krytu platí pro všechny díly.
 - **Díly k tisku:** seznam unikátních dílů a krytů s počty kusů a tlačítkem **STL** u každého. Díly, které se liší jen otočením (rovný díl o 180°, křižovatka o 90°), jsou jedno STL. Levá a pravá zatáčka jsou různé díly, jejich kryt je společný.
 - **Export:** ZIP se všemi unikátními STL (počet kusů je v názvu), `kusovnik.txt`, `sestava.scad`, `cable.scad` a `sestava.json`. Druhá možnost je jedno STL celé sestavy.
@@ -45,6 +46,8 @@ npm install && npm run vendor
 - Spoje jsou ověřené jen geometricky: průnik spojených dílů, dílu s krytem i krytu se sousedem má nulový objem a čep spoje zasahuje 0,7 mm do stěny souseda. **Nevyzkoušel to reálný tisk.** Vůle, výšky čepů a pružnost jazýčků a límce bude potřeba doladit.
 - Sestava je strom s jedním kořenem. Výchozí díl nejde smazat ani změnit jeho typ.
 - Nekontrolují se kolize dílů ani velikost tiskové plochy.
+- Zkosení ve vnitřním rohu zatáčky a křižovatky je skládané z ramen, takže úžlabí je nepatrně hlubší než u ideálního zkosení. Přesné řešení přes `roof()` v tomhle WASM buildu padá (experimentální funkce, chyba CGAL).
+- Šikmé výřezy potřebují víc místa než rovné. Na krátkých ramenech (např. křižovatka s ramenem 40 mm) se proto nemusí vejít žádný.
 
 ---
 
