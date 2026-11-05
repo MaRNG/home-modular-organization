@@ -13,7 +13,7 @@ Díly se renderují v prohlížeči přes OpenSCAD WASM (oficiální snapshot 20
 - **Spoj na zacvaknutí:** každý konec je buď **s čepy** (pružné jazýčky na bocích s kuželovým čepem, přesahují 10 mm přes konec), nebo **s otvory** (kulaté díry v bočních stěnách). Jazýčky se zasunou dovnitř sousedního dílu a čep zacvakne do díry. Pohlaví konců se určí automaticky: připojený konec je opačný než soused, ostatní konce dílu pokračují stejně.
 - **Rozměry:** vnitřní šířka, výška, délka (u L a + délka ramene). Navazující díly se posunou okamžitě, přerenderuje se jen změněný díl.
 - **Výřezy (žebrování):** průhledové výřezy skrz **boky**, **dno** a **kryt**, mezi nimi zůstávají žebra. U každého jde zapnout a nastavit šířku výřezu, šířku žebra, okraj a **sklon** (výchozí 45°, 0° = rovné). Na koncích se spoji se nevyřezává. Šikmé výřezy v bocích mají na protější stěně opačný sklon, takže z vnějšku vypadají obě strany stejně.
-- **Zkosení:** horní vnější hrany stěn a svislé vnější hrany na koncích u spojů (mezi díly vznikne drážka do V). Velikost je 0 až (tloušťka stěny − 0,6 mm). Stejné zkosení dostane i kryt.
+- **Zkosení u spojů:** na koncích dílů se šikmo (45°) usekne horní roh bočních stěn, takže mezi sousedními díly vznikne shora zářez do V. Kryt je na koncích kratší a jeho čela pokračují ve stejné šikmé rovině. Jazýčky souseda, které by do zářezu zasahovaly, se zkosí taky. Velikost je 0 až polovina vnitřní výšky. S větším zkosením se prodlužuje konec bez výřezů a roste minimální délka dílu.
 - **Kryt na zacvaknutí:** kryt drží límcem zasunutým do kanálu. Čepy na límci zacvaknou do otvorů pod horní hranou stěn. Díl s krytem má tyto otvory navíc, proto je v seznamu jako samostatná varianta.
 - Rozměry, zkosení, výřezy i kryt jdou nastavit **po jednom dílu** (klik na díl), nebo tlačítkem „Použít … na všechny díly“ **najednou**. Nový díl převezme nastavení od dílu, na který se připojuje.
 - **Celá sestava:** tloušťka stěny, dna a krytu, vůle spojů, výška čepu spoje a výška čepu krytu platí pro všechny díly.
@@ -42,11 +42,10 @@ npm install && npm run vendor
 ```
 
 ### Zjednodušení a neověřené věci
-- Polohy portů jsou definované **dvakrát**: v `cable.scad` (`arms()`) a v `app.js` (`TYPES[].ports`). Totéž platí pro `tab_len` / `TAB_LEN`. Musí se ručně udržovat ve shodě. Specifikace počítá s jejich čtením ze SCADu přes `echo`.
+- Polohy portů jsou definované **dvakrát**: v `cable.scad` (`arms()`) a v `app.js` (`TYPES[].ports`). Totéž platí pro `tab_len` / `TAB_LEN` a `keep_len()` / `keepLen()`. Musí se ručně udržovat ve shodě. Specifikace počítá s jejich čtením ze SCADu přes `echo`.
 - Spoje jsou ověřené jen geometricky: průnik spojených dílů, dílu s krytem i krytu se sousedem má nulový objem a čep spoje zasahuje 0,7 mm do stěny souseda. **Nevyzkoušel to reálný tisk.** Vůle, výšky čepů a pružnost jazýčků a límce bude potřeba doladit.
 - Sestava je strom s jedním kořenem. Výchozí díl nejde smazat ani změnit jeho typ.
 - Nekontrolují se kolize dílů ani velikost tiskové plochy.
-- Zkosení ve vnitřním rohu zatáčky a křižovatky je skládané z ramen, takže úžlabí je nepatrně hlubší než u ideálního zkosení. Přesné řešení přes `roof()` v tomhle WASM buildu padá (experimentální funkce, chyba CGAL).
 - Šikmé výřezy potřebují víc místa než rovné. Na krátkých ramenech (např. křižovatka s ramenem 40 mm) se proto nemusí vejít žádný.
 
 ---
