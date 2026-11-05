@@ -183,7 +183,7 @@ function singlePartState(type) {
 // Šablona: rovná trasa zadané délky rozdělená na stejně dlouhé rovné díly.
 function runState(totalCm, count) {
   const s = emptyState();
-  s.run = { totalCm, count, ids: [] };
+  s.run = { totalCm, count, ids: [], linked: true };
   return s;
 }
 
@@ -193,6 +193,7 @@ function loadState() {
     if (!saved?.parts?.length) return null;
     saved.globals = { ...DEFAULT_GLOBALS, ...saved.globals };
     saved.run ??= null;
+    if (saved.run) saved.run.linked ??= true;
     for (const p of saved.parts) {
       const { ch, cj, ...params } = p.params; // zrušené zkosení hran z dřívější verze
       p.params = { ...DEFAULT_PARAMS, ...params };
@@ -819,9 +820,12 @@ function renderPartPanel() {
     return;
   }
   const v = variant(part).label;
-  const targets = [part];
+  // U propojené rovné trasy se změna dílu trasy použije na všechny její díly.
+  const linked = state.run?.linked && isRunPart(part);
+  const targets = linked ? state.run.ids.map(partById) : [part];
   panel.innerHTML = `<h2><span class="swatch" style="background:${hex(TYPES[part.type].color)}"></span>` +
-    `${TYPES[part.type].label} #${part.id}${v ? ` <small>(${v})</small>` : ''}</h2>`;
+    `${TYPES[part.type].label} #${part.id}${v ? ` <small>(${v})</small>` : ''}</h2>` +
+    (linked ? `<p class="note">Změny se použijí na všech ${targets.length} dílů rovné trasy.</p>` : '');
   const setParam = (name, value, delay) => {
     for (const p of targets) {
       p.params[name] = value;
@@ -1097,6 +1101,7 @@ function renderRunPanel() {
     Object.assign(el, { min: range.min, max: range.max });
     set(el, run.count);
   }
+  $('run-linked').checked = run.linked;
   $('run-result').innerHTML = `<b>${run.count} × ${runPartLen(run)} mm</b> = ${run.totalCm} cm` +
     ` <span class="note">(${range.min}–${range.max} dílů)</span>`;
 }
@@ -1109,8 +1114,14 @@ function buildRunPanel(panel) {
       <input type="number" id="run-total" min="5" max="1000" step="0.5"></div>
     <div class="slider"><label for="run-count">Počet dílů</label>
       <input type="range" id="run-count-range" step="1"><input type="number" id="run-count" step="1"></div>
-    <p class="run-result" id="run-result"></p>`;
+    <p class="run-result" id="run-result"></p>
+    <label class="check"><input type="checkbox" id="run-linked"> Nastavení platí pro všechny díly trasy</label>`;
   const $ = (id) => panel.querySelector(`#${id}`);
+  $('run-linked').addEventListener('change', () => {
+    state.run.linked = $('run-linked').checked;
+    saveState();
+    renderPartPanel();
+  });
   const apply = (key, value, min, max) => {
     value = Math.min(max, Math.max(min, Number(value)));
     if (Number.isNaN(value)) return;
