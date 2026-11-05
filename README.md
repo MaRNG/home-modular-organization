@@ -1,6 +1,6 @@
 # SCAD Online Demo
 
-> **Stav:** běží první demo části 2 (konfigurátor kabelového žlabu). Zbytek je specifikace.
+> **Stav:** běží demo části 2 (modulární organizace, kategorie Kabely). Zbytek je specifikace.
 
 ## Demo: konfigurátor kabelového žlabu
 
@@ -8,6 +8,10 @@
 
 Díly se renderují v prohlížeči přes OpenSCAD WASM (oficiální snapshot 2026.11.01, Manifold backend). UI OpenSCADu se nepoužívá.
 
+Aplikace je navržená jako nástroj pro modulární organizaci domácnosti. Zatím obsahuje kategorii **Kabely**, další kategorie jsou na úvodní obrazovce jako „Již brzy“.
+
+- **Úvodní okno:** výběr kategorie, pak způsob začátku: šablona **Rovná trasa**, nebo jeden díl (rovný, zatáčka, křižovatka). Když existuje uložená sestava, nabídne „Pokračovat“. Tlačítko „Nová sestava…“ okno otevře znovu.
+- **Rovná trasa:** zadáš délku kabelu v cm a počet dílů. Trasa se rozdělí na stejně dlouhé rovné díly, takže v seznamu k tisku je jedno STL. V panelu „Rovná trasa“ jde délku i počet dílů kdykoli změnit a délka dílů se přepočítá, aby součet seděl. Počet je omezený tak, aby díl měl mezi minimální délkou a 300 mm. Na oba konce trasy jde napojovat další díly a při změně počtu zůstanou napojené na konci. Smazáním dílu z trasy se šablona zruší a díly zůstanou jako běžné.
 - **Díly:** rovný díl, zatáčka L (doleva/doprava), křižovatka +.
 - **Řetězení:** klik na zelenou šipku na volném konci → výběr dílu, který se připojí.
 - **Spoj na zacvaknutí:** každý konec je buď **s čepy** (pružné jazýčky na bocích s kuželovým čepem, přesahují 10 mm přes konec), nebo **s otvory** (kulaté díry v bočních stěnách). Jazýčky se zasunou dovnitř sousedního dílu a čep zacvakne do díry. Pohlaví konců se určí automaticky: připojený konec je opačný než soused, ostatní konce dílu pokračují stejně.
@@ -44,7 +48,8 @@ npm install && npm run vendor
 ### Zjednodušení a neověřené věci
 - Polohy portů jsou definované **dvakrát**: v `cable.scad` (`arms()`) a v `app.js` (`TYPES[].ports`). Totéž platí pro `tab_len` / `TAB_LEN` a `keep_len()` / `keepLen()`. Musí se ručně udržovat ve shodě. Specifikace počítá s jejich čtením ze SCADu přes `echo`.
 - Spoje jsou ověřené jen geometricky: průnik spojených dílů, dílu s krytem i krytu se sousedem má nulový objem a čep spoje zasahuje 0,7 mm do stěny souseda. **Nevyzkoušel to reálný tisk.** Vůle, výšky čepů a pružnost jazýčků a límce bude potřeba doladit.
-- Sestava je strom s jedním kořenem. Výchozí díl nejde smazat ani změnit jeho typ.
+- Sestava je strom s jedním kořenem. První díl nejde smazat ani změnit jeho typ.
+- Délka trasy je součet délek dílů od portu k portu. Jazýčky na volném konci s čepy přesahují o dalších 10 mm.
 - Nekontrolují se kolize dílů ani velikost tiskové plochy.
 - Šikmé výřezy potřebují víc místa než rovné. Na krátkých ramenech (např. křižovatka s ramenem 40 mm) se proto nemusí vejít žádný.
 
