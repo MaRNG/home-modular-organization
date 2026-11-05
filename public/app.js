@@ -40,6 +40,8 @@ const TYPES = {
   },
 };
 
+// = chamfer() v cable.scad: zkosení nesmí prořezat stěnu.
+const maxChamfer = () => Math.max(0, Math.round((state.globals.t - 0.6) * 10) / 10);
 const minArm = (p) => Math.ceil((p.w + 2 * state.globals.t) / 2 + TAB_LEN + 2);
 
 // Parametry dílu po skupinách; každou skupinu jde přenést na všechny díly.
@@ -56,30 +58,41 @@ const PART_GROUPS = [
     },
   },
   {
+    title: 'Zkosení',
+    apply: ['ch', 'cj'],
+    applyLabel: 'Použít zkosení na všechny díly',
+    params: {
+      ch: { label: 'Horní hrany stěn (0 = rovné)', min: 0, max: maxChamfer, step: 0.2 },
+      cj: { label: 'Hrany u spojů (0 = rovné)', min: 0, max: maxChamfer, step: 0.2 },
+    },
+  },
+  {
     title: 'Výřezy v bocích',
-    apply: ['slots', 'slot_w', 'slot_bar', 'slot_m'],
+    apply: ['slots', 'slot_w', 'slot_bar', 'slot_m', 'slot_a'],
     applyLabel: 'Použít výřezy v bocích na všechny díly',
     params: {
       slots: { label: 'Výřezy v bocích', type: 'bool' },
       slot_w: { label: 'Šířka výřezu', min: 2, max: 30, step: 0.5, needs: ['slots'] },
       slot_bar: { label: 'Šířka žebra mezi výřezy', min: 1.5, max: 20, step: 0.5, needs: ['slots'] },
       slot_m: { label: 'Okraj nahoře a dole', min: 1, max: 10, step: 0.5, needs: ['slots'] },
+      slot_a: { label: 'Sklon výřezu', unit: '°', min: -60, max: 60, step: 5, needs: ['slots'] },
     },
   },
   {
     title: 'Výřezy ve dně',
-    apply: ['floor_slots', 'floor_slot_w', 'floor_slot_bar', 'floor_slot_m'],
+    apply: ['floor_slots', 'floor_slot_w', 'floor_slot_bar', 'floor_slot_m', 'floor_slot_a'],
     applyLabel: 'Použít výřezy ve dně na všechny díly',
     params: {
       floor_slots: { label: 'Výřezy ve dně', type: 'bool' },
       floor_slot_w: { label: 'Šířka výřezu', min: 2, max: 30, step: 0.5, needs: ['floor_slots'] },
       floor_slot_bar: { label: 'Šířka žebra mezi výřezy', min: 1.5, max: 20, step: 0.5, needs: ['floor_slots'] },
       floor_slot_m: { label: 'Okraj od stěn', min: 1, max: 15, step: 0.5, needs: ['floor_slots'] },
+      floor_slot_a: { label: 'Sklon výřezu', unit: '°', min: -60, max: 60, step: 5, needs: ['floor_slots'] },
     },
   },
   {
     title: 'Kryt',
-    apply: ['lid', 'lid_slots', 'lid_slot_w', 'lid_slot_bar', 'lid_slot_m'],
+    apply: ['lid', 'lid_slots', 'lid_slot_w', 'lid_slot_bar', 'lid_slot_m', 'lid_slot_a'],
     applyLabel: 'Použít kryt na všechny díly',
     params: {
       lid: { label: 'Zakrytovat (kryt na zacvaknutí)', type: 'bool' },
@@ -87,15 +100,16 @@ const PART_GROUPS = [
       lid_slot_w: { label: 'Šířka výřezu', min: 2, max: 30, step: 0.5, needs: ['lid', 'lid_slots'] },
       lid_slot_bar: { label: 'Šířka žebra mezi výřezy', min: 1.5, max: 20, step: 0.5, needs: ['lid', 'lid_slots'] },
       lid_slot_m: { label: 'Okraj od límce', min: 1, max: 10, step: 0.5, needs: ['lid', 'lid_slots'] },
+      lid_slot_a: { label: 'Sklon výřezu', unit: '°', min: -60, max: 60, step: 5, needs: ['lid', 'lid_slots'] },
     },
   },
 ];
 
 const DEFAULT_PARAMS = {
-  w: 30, h: 20,
-  slots: false, slot_w: 6, slot_bar: 4, slot_m: 2,
-  floor_slots: false, floor_slot_w: 4, floor_slot_bar: 6, floor_slot_m: 4,
-  lid: false, lid_slots: false, lid_slot_w: 6, lid_slot_bar: 6, lid_slot_m: 2,
+  w: 30, h: 20, ch: 0, cj: 0,
+  slots: false, slot_w: 6, slot_bar: 4, slot_m: 2, slot_a: 45,
+  floor_slots: false, floor_slot_w: 4, floor_slot_bar: 6, floor_slot_m: 4, floor_slot_a: 45,
+  lid: false, lid_slots: false, lid_slot_w: 6, lid_slot_bar: 6, lid_slot_m: 2, lid_slot_a: 45,
 };
 
 const GLOBAL_PARAMS = {
@@ -165,7 +179,10 @@ function removePart(id) {
 }
 
 function clampSize(part) {
-  if (part.params.arm !== undefined) part.params.arm = Math.max(part.params.arm, minArm(part.params));
+  const p = part.params;
+  if (p.arm !== undefined) p.arm = Math.max(p.arm, minArm(p));
+  p.ch = Math.min(p.ch, maxChamfer());
+  p.cj = Math.min(p.cj, maxChamfer());
 }
 
 // Port v souřadnicích světa.
@@ -255,9 +272,9 @@ function bodyDefs(part) {
   const p = part.params, g = state.globals;
   return {
     what: 'body', part: part.type, ...sizeParam(part), w: p.w, h: p.h,
-    t: g.t, f: g.f, c: g.c, bump: g.bump, genders: canonical(part).genders,
-    slots: p.slots, ...enabled(p, 'slots', ['slot_w', 'slot_bar', 'slot_m']),
-    floor_slots: p.floor_slots, ...enabled(p, 'floor_slots', ['floor_slot_w', 'floor_slot_bar', 'floor_slot_m']),
+    t: g.t, f: g.f, c: g.c, bump: g.bump, genders: canonical(part).genders, ch: p.ch, cj: p.cj,
+    slots: p.slots, ...enabled(p, 'slots', ['slot_w', 'slot_bar', 'slot_m', 'slot_a']),
+    floor_slots: p.floor_slots, ...enabled(p, 'floor_slots', ['floor_slot_w', 'floor_slot_bar', 'floor_slot_m', 'floor_slot_a']),
     lid: p.lid,
   };
 }
@@ -267,7 +284,8 @@ function lidDefs(part) {
   if (!p.lid) return null;
   return {
     what: 'lid', part: part.type, ...sizeParam(part), w: p.w, t: g.t, c: g.c, lid_bump: g.lid_bump, lid_t: g.lid_t,
-    lid_slots: p.lid_slots, ...enabled(p, 'lid_slots', ['lid_slot_w', 'lid_slot_bar', 'lid_slot_m']),
+    ch: p.ch, cj: p.cj,
+    lid_slots: p.lid_slots, ...enabled(p, 'lid_slots', ['lid_slot_w', 'lid_slot_bar', 'lid_slot_m', 'lid_slot_a']),
   };
 }
 
@@ -582,20 +600,20 @@ function slider(def, value, ctx, onInput) {
   const row = document.createElement('div');
   row.className = 'slider';
   const id = `s-${Math.random().toString(36).slice(2)}`;
-  row.innerHTML = `<label for="${id}">${def.label} (mm)</label>
+  row.innerHTML = `<label for="${id}">${def.label} (${def.unit ?? 'mm'})</label>
     <input type="range" id="${id}"><input type="number" aria-label="${def.label}">`;
   const [range, number] = row.querySelectorAll('input');
   const apply = () => {
     for (const el of [range, number]) {
       el.min = limit(def.min, ctx());
-      el.max = def.max;
+      el.max = limit(def.max, ctx());
       el.step = def.step;
     }
   };
   apply();
   range.value = number.value = value;
   const set = (v, src) => {
-    v = Math.min(def.max, Math.max(limit(def.min, ctx()), Number(v)));
+    v = Math.min(limit(def.max, ctx()), Math.max(limit(def.min, ctx()), Number(v)));
     if (Number.isNaN(v)) return;
     if (src !== range) range.value = v;
     if (src !== number) number.value = v;
@@ -639,20 +657,21 @@ const sizeLabel = (part) => (part.type === 'straight' ? `délka ${part.params.le
 function bodyLabel(part) {
   const v = variant(part).label;
   return `${TYPES[part.type].label}${v ? ` (${v})` : ''} – ${part.params.w}×${part.params.h}, ${sizeLabel(part)}` +
-    (part.params.slots ? ', výřezy v bocích' : '') + (part.params.floor_slots ? ', výřezy ve dně' : '') +
+    (part.params.ch || part.params.cj ? ', zkosení' : '') + (part.params.slots ? ', výřezy v bocích' : '') + (part.params.floor_slots ? ', výřezy ve dně' : '') +
     (part.params.lid ? ', pro kryt' : '');
 }
 
 const lidLabel = (part) =>
   `Kryt – ${TYPES[part.type].lidLabel}, šířka ${part.params.w}, ${sizeLabel(part)}` +
-  (part.params.lid_slots ? ', s výřezy' : '');
+  (part.params.ch || part.params.cj ? ', zkosení' : '') + (part.params.lid_slots ? ', s výřezy' : '');
 
 const sizeSlug = (part) => part.params.len ?? part.params.arm;
 const bodyFile = (part) =>
   `${TYPES[part.type].slug}${variant(part).slug}_${part.params.w}x${part.params.h}_${sizeSlug(part)}mm` +
-  `${part.params.slots ? '_bok' : ''}${part.params.floor_slots ? '_dno' : ''}${part.params.lid ? '_kryt' : ''}`;
+  `${part.params.ch || part.params.cj ? '_zkos' : ''}${part.params.slots ? '_bok' : ''}${part.params.floor_slots ? '_dno' : ''}${part.params.lid ? '_kryt' : ''}`;
 const lidFile = (part) =>
-  `kryt-${TYPES[part.type].slug}_${part.params.w}_${sizeSlug(part)}mm${part.params.lid_slots ? '_vyrezy' : ''}`;
+  `kryt-${TYPES[part.type].slug}_${part.params.w}_${sizeSlug(part)}mm` +
+  `${part.params.ch || part.params.cj ? '_zkos' : ''}${part.params.lid_slots ? '_vyrezy' : ''}`;
 
 function renderPartPanel() {
   const panel = document.getElementById('part-panel');
