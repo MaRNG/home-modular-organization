@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Kabelový žlab – modulární konfigurátor</title>
+  <title>Modulární organizace domácnosti</title>
   <link rel="stylesheet" href="style.css">
   <script type="importmap">
     { "imports": {
@@ -26,7 +26,9 @@
   </main>
 
   <aside id="sidebar">
-    <h1>Kabelový žlab</h1>
+    <h1>Modulární organizace <small>· Kabely</small></h1>
+
+    <section id="run-panel" hidden></section>
 
     <section id="part-panel"></section>
 
@@ -46,8 +48,12 @@
       <button id="export-zip" class="primary">Stáhnout díly k tisku (ZIP)</button>
       <button id="export-stl">Stáhnout sestavu jako STL</button>
       <button id="fit">Zobrazit vše</button>
-      <button id="reset">Nová sestava</button>
+      <button id="reset">Nová sestava…</button>
     </section>
   </aside>
+
+  <div id="start" class="modal" role="dialog" aria-modal="true" aria-label="Nová sestava" hidden>
+    <div class="modal-body"></div>
+  </div>
 </body>
 </html>

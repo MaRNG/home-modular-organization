@@ -131,16 +131,29 @@ const limit = (v, p) => (typeof v === 'function' ? v(p) : v);
 // Stav sestavy: strom dílů, polohy a pohlaví portů se vždy dopočítají.
 
 const STORAGE_KEY = 'scad-cable-demo-v3';
-let state = loadState() ?? newState();
+let state = loadState() ?? emptyState();
 let selectedId = null;
 let showLids = true;
 
-function newState() {
-  return {
-    globals: { ...DEFAULT_GLOBALS },
-    nextId: 2,
-    parts: [{ id: 1, type: 'straight', params: { ...DEFAULT_PARAMS, len: 80 }, parent: null }],
-  };
+function emptyState() {
+  return { category: 'cables', globals: { ...DEFAULT_GLOBALS }, nextId: 1, parts: [], run: null };
+}
+
+// Nová sestava začínající jedním dílem.
+function singlePartState(type) {
+  const s = emptyState();
+  const params = { ...DEFAULT_PARAMS };
+  if (type === 'straight') params.len = 80;
+  else params.arm = 40;
+  s.parts.push({ id: s.nextId++, type, params, parent: null });
+  return s;
+}
+
+// Šablona: rovná trasa zadané délky rozdělená na stejně dlouhé rovné díly.
+function runState(totalCm, count) {
+  const s = emptyState();
+  s.run = { totalCm, count, ids: [] };
+  return s;
 }
 
 function loadState() {
@@ -148,6 +161,7 @@ function loadState() {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
     if (!saved?.parts?.length) return null;
     saved.globals = { ...DEFAULT_GLOBALS, ...saved.globals };
+    saved.run ??= null;
     for (const p of saved.parts) {
       const { ch, cj, ...params } = p.params; // zrušené zkosení hran z dřívější verze
       p.params = { ...DEFAULT_PARAMS, ...params };
@@ -181,13 +195,71 @@ function removePart(id) {
   // Rodiče jsou v poli vždy před dětmi, takže stačí jeden průchod.
   for (const p of state.parts) if (doomed.has(p.parent)) doomed.add(p.id);
   state.parts = state.parts.filter((p) => !doomed.has(p.id));
+  // Smazáním dílu z rovné trasy trasa přestává platit, díly zůstanou jako běžné.
+  if (state.run?.ids.some((i) => doomed.has(i))) state.run = null;
+}
+
+// ---------------------------------------------------------------------------
+// Rovná trasa: řetěz rovných dílů, jejichž délky dávají dohromady zadanou délku.
+
+const MAX_LEN = PART_GROUPS[0].params.len.max;
+const isRunPart = (part) => !!state.run?.ids.includes(part.id);
+const runPartLen = (run) => Math.round(((run.totalCm * 10) / run.count) * 100) / 100;
+
+// Rozsah počtu dílů, aby délka jednoho dílu zůstala mezi minimem a MAX_LEN.
+function runCountRange(totalCm, params) {
+  const total = totalCm * 10;
+  const min = Math.max(1, Math.ceil(total / MAX_LEN - 1e-9));
+  return { min, max: Math.max(min, Math.floor(total / minLen(params) + 1e-9)) };
+}
+
+// Uvede díly trasy do souladu s run.count a run.totalCm. Zachová nastavení
+// existujících dílů; nové díly převezmou nastavení posledního dílu trasy.
+// Díly napojené na konec trasy se přepojí na nový poslední díl.
+function syncRun() {
+  const run = state.run;
+  if (!run) return;
+  const old = run.ids.map(partById);
+  const template = old.at(-1)?.params ?? { ...DEFAULT_PARAMS };
+  const range = runCountRange(run.totalCm, template);
+  run.count = Math.min(range.max, Math.max(range.min, run.count));
+  const len = runPartLen(run);
+
+  const ids = [];
+  const added = [];
+  for (let i = 0; i < run.count; i++) {
+    let part = old[i];
+    if (!part) {
+      part = i === 0
+        ? { id: state.nextId++, type: 'straight', params: { ...template }, parent: null }
+        : { id: state.nextId++, type: 'straight', params: { ...template }, parent: ids[i - 1], parentPort: 1, port: 0 };
+      added.push(part);
+    }
+    if (part.params.len !== len) {
+      part.params.len = len;
+      refreshGeometry(part, 200);
+    }
+    ids.push(part.id);
+  }
+
+  const keep = new Set(ids);
+  const runParts = [...old.filter((p) => keep.has(p.id)), ...added];
+  const lastOld = old.at(-1)?.id;
+  const others = state.parts.filter((p) => !run.ids.includes(p.id));
+  for (const p of others) if (p.parent === lastOld && p.parentPort === 1) p.parent = ids.at(-1);
+  // Rodiče musí být v poli před dětmi: nejdřív trasa, pak zbytek v původním pořadí.
+  state.parts = [...runParts.sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id)), ...others];
+  run.ids = ids;
+  for (const part of added) refreshGeometry(part);
+  if (!partById(selectedId)) selectedId = null;
 }
 
 function clampSize(part) {
   const p = part.params;
   p.ce = Math.min(p.ce, maxNotch(p));
   if (p.arm !== undefined) p.arm = Math.max(p.arm, minArm(p));
-  if (p.len !== undefined) p.len = Math.max(p.len, minLen(p));
+  // Délky dílů rovné trasy hlídá syncRun() přes počet dílů.
+  if (p.len !== undefined && !isRunPart(part)) p.len = Math.max(p.len, minLen(p));
 }
 
 // Port v souřadnicích světa.
@@ -364,7 +436,8 @@ function updateStatus() {
   if (busy) {
     el.textContent = !wasmReady ? 'Načítám OpenSCAD…' : `Renderuji ${busy} ${busy === 1 ? 'díl' : busy < 5 ? 'díly' : 'dílů'}…`;
   } else {
-    el.textContent = lastError ? `Chyba: ${lastError}` : `Hotovo · ${state.parts.length} dílů v sestavě`;
+    el.textContent = lastError ? `Chyba: ${lastError}`
+      : state.parts.length ? `Hotovo · ${state.parts.length} dílů v sestavě` : 'Prázdná sestava';
   }
 }
 
@@ -424,7 +497,12 @@ function makePart3d(part) {
     m.userData.partId = part.id;
     return m;
   };
-  const o = { group: new THREE.Group(), body: mesh(color), lid: mesh(color.clone().lerp(new THREE.Color(0xffffff), 0.45)) };
+  const o = {
+    type: part.type,
+    group: new THREE.Group(),
+    body: mesh(color),
+    lid: mesh(color.clone().lerp(new THREE.Color(0xffffff), 0.45)),
+  };
   // Kryt je vyrenderovaný v tiskové orientaci, na díl se otočí vzhůru nohama.
   o.lid.rotation.x = Math.PI;
   o.group.add(o.body, o.lid);
@@ -434,7 +512,8 @@ function makePart3d(part) {
 
 function syncScene() {
   for (const [id, o] of parts3d) {
-    if (!partById(id)) {
+    // Nová sestava čísluje díly znovu od 1, takže stejné id může mít jiný typ.
+    if (partById(id)?.type !== o.type) {
       partGroup.remove(o.group);
       o.body.material.dispose();
       o.lid.material.dispose();
@@ -502,7 +581,8 @@ function refreshGeometry(part, delay = 0) {
         wasmReady = true;
         if (fitPending && !pending.size && !queue.length) {
           fitPending = false;
-          fitView();
+          // Stejné díly sdílí jeden render; počkat, až geometrii dostanou všechny.
+          setTimeout(fitView);
         }
         updateStatus();
       }).catch((e) => {
@@ -698,6 +778,13 @@ function renderPartPanel() {
     for (const [name, def] of Object.entries(group.params)) {
       if (def.only && !def.only.includes(part.type)) continue;
       if (def.needs && !def.needs.every((n) => part.params[n])) continue;
+      if (name === 'len' && isRunPart(part)) {
+        const note = document.createElement('p');
+        note.className = 'note';
+        note.textContent = `Délka ${part.params.len} mm je daná rovnou trasou (panel Rovná trasa).`;
+        section.append(note);
+        continue;
+      }
       if (def.type === 'bool') {
         rows[name] = checkbox(def, part.params[name], (value) => {
           part.params[name] = value;
@@ -819,11 +906,15 @@ document.getElementById('print-list').addEventListener('click', async (e) => {
 });
 
 function changed() {
+  syncRun();
   layout();
   syncScene();
+  renderRunPanel();
   renderPrintList();
   saveState();
   updateStatus();
+  const empty = !state.parts.length;
+  for (const id of ['export-zip', 'export-stl', 'fit']) document.getElementById(id).disabled = empty;
 }
 
 // ---------------------------------------------------------------------------
@@ -911,15 +1002,165 @@ document.getElementById('export-stl').onclick = async () => {
 
 document.getElementById('fit').onclick = fitView;
 
-document.getElementById('reset').onclick = () => {
-  state = newState();
+document.getElementById('reset').onclick = () => openStart();
+
+function startWith(newState) {
+  state = newState;
   selectedId = null;
   changed();
   renderGlobalPanel();
   renderPartPanel();
   fitPending = true;
   for (const p of state.parts) refreshGeometry(p);
-};
+  closeStart();
+}
+
+// ---------------------------------------------------------------------------
+// Panel rovné trasy
+
+function renderRunPanel() {
+  const panel = document.getElementById('run-panel');
+  const run = state.run;
+  panel.hidden = !run;
+  if (!run) {
+    panel.innerHTML = '';
+    return;
+  }
+  if (!panel.querySelector('#run-count')) buildRunPanel(panel);
+  const range = runCountRange(run.totalCm, partById(run.ids[0])?.params ?? DEFAULT_PARAMS);
+  const $ = (id) => panel.querySelector(`#${id}`);
+  // Prvek, se kterým uživatel právě pracuje, se nepřepisuje.
+  const set = (el, value) => {
+    if (document.activeElement !== el) el.value = value;
+  };
+  set($('run-total-range'), run.totalCm);
+  set($('run-total'), run.totalCm);
+  for (const el of [$('run-count-range'), $('run-count')]) {
+    Object.assign(el, { min: range.min, max: range.max });
+    set(el, run.count);
+  }
+  $('run-result').innerHTML = `<b>${run.count} × ${runPartLen(run)} mm</b> = ${run.totalCm} cm` +
+    ` <span class="note">(${range.min}–${range.max} dílů)</span>`;
+}
+
+function buildRunPanel(panel) {
+  panel.innerHTML = `<h2>Rovná trasa</h2>
+    <p class="note">Díly jsou stejně dlouhé a dohromady dají délku trasy.</p>
+    <div class="slider"><label for="run-total">Délka trasy (cm)</label>
+      <input type="range" id="run-total-range" min="5" max="1000" step="1">
+      <input type="number" id="run-total" min="5" max="1000" step="0.5"></div>
+    <div class="slider"><label for="run-count">Počet dílů</label>
+      <input type="range" id="run-count-range" step="1"><input type="number" id="run-count" step="1"></div>
+    <p class="run-result" id="run-result"></p>`;
+  const $ = (id) => panel.querySelector(`#${id}`);
+  const apply = (key, value, min, max) => {
+    value = Math.min(max, Math.max(min, Number(value)));
+    if (Number.isNaN(value)) return;
+    state.run[key] = value;
+    changed();
+    renderPartPanel();
+  };
+  const bind = (rangeId, numberId, key, min, max) => {
+    $(rangeId).addEventListener('input', () => {
+      $(numberId).value = $(rangeId).value;
+      apply(key, $(rangeId).value, min(), max());
+    });
+    $(numberId).addEventListener('change', () => apply(key, $(numberId).value, min(), max()));
+  };
+  bind('run-total-range', 'run-total', 'totalCm', () => 5, () => 1000);
+  bind('run-count-range', 'run-count', 'count', () => Number($('run-count').min), () => Number($('run-count').max));
+  // Po dokončení úpravy se zobrazí i oříznutá hodnota.
+  panel.addEventListener('change', () => {
+    document.activeElement.blur();
+    renderRunPanel();
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Úvodní okno: výběr kategorie a způsobu začátku
+
+const startModal = document.getElementById('start');
+
+function openStart(step = 'category') {
+  startModal.hidden = false;
+  const body = startModal.querySelector('.modal-body');
+  if (step === 'category') {
+    const resume = state.parts.length
+      ? `<button class="link" data-resume>Pokračovat v rozpracované sestavě (${state.parts.length} dílů) →</button>` : '';
+    body.innerHTML = `<h2>Co chceš organizovat?</h2>
+      <div class="cards">
+        <button class="card" data-category="cables">
+          <span class="card-title">Kabely</span>
+          <span class="card-text">Kabelové žlaby s krytem: rovné díly, zatáčky a křižovatky, které do sebe zacvaknou.</span>
+        </button>
+        <div class="card disabled" aria-disabled="true">
+          <span class="badge">Již brzy</span>
+          <span class="card-title">Další organizace</span>
+          <span class="card-text">Šuplíky, nářadí, police a další moduly pro domácnost.</span>
+        </div>
+      </div>${resume}`;
+    body.querySelector('[data-category]').onclick = () => openStart('cables');
+    body.querySelector('[data-resume]')?.addEventListener('click', closeStart);
+    return;
+  }
+
+  body.innerHTML = `<button class="link" data-back>← Zpět</button>
+    <h2>Kabely – jak začít?</h2>
+    <div class="card template">
+      <span class="card-title">Rovná trasa podle délky kabelu</span>
+      <span class="card-text">Zadej, kolik kabelu chceš zakrytovat. Trasa se rozdělí na stejně dlouhé rovné díly, jejich počet jde později změnit.</span>
+      <div class="template-inputs">
+        <label>Délka (cm) <input type="number" id="tpl-total" min="5" max="1000" step="0.5" value="100"></label>
+        <label>Počet dílů <input type="number" id="tpl-count" step="1"></label>
+      </div>
+      <p class="run-result" id="tpl-result"></p>
+      <button class="primary" id="tpl-create">Vytvořit trasu</button>
+    </div>
+    <h3>Nebo začni jedním dílem</h3>
+    <div class="cards three">
+      <button class="card" data-part="straight"><span class="card-title">━ Rovný díl</span></button>
+      <button class="card" data-part="corner"><span class="card-title">┗ Zatáčka L</span></button>
+      <button class="card" data-part="cross"><span class="card-title">╋ Křižovatka +</span></button>
+    </div>`;
+  body.querySelector('[data-back]').onclick = () => openStart('category');
+  for (const btn of body.querySelectorAll('[data-part]')) btn.onclick = () => startWith(singlePartState(btn.dataset.part));
+
+  const total = body.querySelector('#tpl-total');
+  const count = body.querySelector('#tpl-count');
+  const result = body.querySelector('#tpl-result');
+  const create = body.querySelector('#tpl-create');
+  let countTouched = false;
+  const update = () => {
+    const cm = Number(total.value);
+    const valid = cm >= 5 && cm <= 1000;
+    create.disabled = !valid;
+    if (!valid) {
+      result.textContent = 'Zadej délku 5–1000 cm.';
+      return;
+    }
+    const range = runCountRange(cm, DEFAULT_PARAMS);
+    Object.assign(count, { min: range.min, max: range.max });
+    // Výchozí počet: díly do 20 cm, aby se vešly na běžnou tiskovou plochu.
+    if (!countTouched) count.value = Math.min(range.max, Math.max(range.min, Math.ceil((cm * 10) / 200)));
+    count.value = Math.min(range.max, Math.max(range.min, Number(count.value) || range.min));
+    result.innerHTML = `<b>${count.value} × ${runPartLen({ totalCm: cm, count: Number(count.value) })} mm</b>` +
+      ` <span class="note">(${range.min}–${range.max} dílů)</span>`;
+  };
+  total.addEventListener('input', update);
+  count.addEventListener('input', () => { countTouched = true; });
+  count.addEventListener('change', update);
+  create.onclick = () => startWith(runState(Number(total.value), Number(count.value)));
+  update();
+}
+
+function closeStart() {
+  if (!state.parts.length) return; // bez sestavy není s čím pracovat
+  startModal.hidden = true;
+}
+
+startModal.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeStart();
+});
 
 // ---------------------------------------------------------------------------
 
@@ -928,3 +1169,4 @@ renderGlobalPanel();
 renderPartPanel();
 changed();
 for (const part of state.parts) refreshGeometry(part);
+openStart();
