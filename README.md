@@ -11,8 +11,8 @@ Díly se renderují v prohlížeči přes OpenSCAD WASM (oficiální snapshot 20
 Aplikace je navržená jako nástroj pro modulární organizaci domácnosti. Zatím obsahuje kategorii **Kabely**, další kategorie jsou na úvodní obrazovce jako „Již brzy“.
 
 - **Úvodní okno:** výběr kategorie, pak způsob začátku: šablona **Rovná trasa**, nebo jeden díl (rovný, zatáčka, křižovatka). Když existuje uložená sestava, nabídne „Pokračovat“. Tlačítko „Nová sestava…“ okno otevře znovu.
-- **Rovná trasa:** zadáš délku kabelu v cm a počet dílů. Trasa se rozdělí na stejně dlouhé rovné díly, takže v seznamu k tisku je jedno STL. V panelu „Rovná trasa“ jde délku i počet dílů kdykoli změnit a délka dílů se přepočítá, aby součet seděl. Počet je omezený tak, aby díl měl mezi minimální délkou a 300 mm. Na oba konce trasy jde napojovat další díly a při změně počtu zůstanou napojené na konci. Smazáním dílu z trasy se šablona zruší a díly zůstanou jako běžné.
-- **Díly:** rovný díl, zatáčka L (doleva/doprava), křižovatka +.
+- **Rovná trasa:** zadáš délku kabelu v cm a počet dílů. Trasa se rozdělí na stejně dlouhé rovné díly, takže v seznamu k tisku je jedno STL. V panelu „Rovná trasa“ jde délku i počet dílů kdykoli změnit a délka dílů se přepočítá, aby součet seděl. Počet je omezený tak, aby díl měl mezi minimální délkou a 300 mm. Na oba konce trasy jde napojovat další díly a při změně počtu zůstanou napojené na konci. Smazáním dílu z trasy se šablona zruší a díly zůstanou jako běžné. Zaškrtávátko **Nastavení platí pro všechny díly trasy** (ve výchozím stavu zapnuté) způsobí, že změna rozměrů, zkosení, výřezů nebo krytu na jednom dílu trasy se použije na všechny její díly.
+- **Díly:** rovný díl, zatáčka L (doleva/doprava), křižovatka +, **zatáčka nahoru** (vnitřní roh o 90°, např. ze stolu na stěnu; otevřená strana se otočí zpět do místnosti) a **zatáčka dolů** (vnější roh o 90° přes hranu stolu). Díly se skládají ve 3D, takže na svislé části trasy jde dál napojovat cokoli. Směr „nahoru/dolů“ je vždy vůči dnu dílu, na který se napojuje.
 - **Řetězení:** klik na zelenou šipku na volném konci → výběr dílu, který se připojí.
 - **Spoj na zacvaknutí:** každý konec je buď **s čepy** (pružné jazýčky na bocích s kuželovým čepem, přesahují 10 mm přes konec), nebo **s otvory** (kulaté díry v bočních stěnách). Jazýčky se zasunou dovnitř sousedního dílu a čep zacvakne do díry. Pohlaví konců se určí automaticky: připojený konec je opačný než soused, ostatní konce dílu pokračují stejně.
 - **Rozměry:** vnitřní šířka, výška, délka (u L a + délka ramene). Navazující díly se posunou okamžitě, přerenderuje se jen změněný díl.
@@ -29,6 +29,7 @@ Aplikace je navržená jako nástroj pro modulární organizaci domácnosti. Zat
 ### Tisková orientace
 - Díly se tisknou dnem na podložce. Čepy, díry a výřezy jsou na svislých stěnách nebo skrz dno, takže se tisknou bez podpor.
 - Kryty jsou v STL otočené vzhůru nohama: deska leží na podložce, límec s čepy je nahoře.
+- Kryt zatáčky nahoru/dolů jsou dvě rovné desky (vodorovná a svislá) v jednom STL vedle sebe. V ohybu na sebe navazují, u zatáčky dolů přesahuje vodorovná deska přes vnější roh.
 
 ### Soubory
 
@@ -46,7 +47,7 @@ npm install && npm run vendor
 ```
 
 ### Zjednodušení a neověřené věci
-- Polohy portů jsou definované **dvakrát**: v `cable.scad` (`arms()`) a v `app.js` (`TYPES[].ports`). Totéž platí pro `tab_len` / `TAB_LEN` a `keep_len()` / `keepLen()`. Musí se ručně udržovat ve shodě. Specifikace počítá s jejich čtením ze SCADu přes `echo`.
+- Polohy a rámce portů jsou definované **dvakrát**: v `cable.scad` (`arms()`, `outer_x0()`, `seg_start()`) a v `app.js` (`TYPES[].ports`, `minArm()`). Totéž platí pro `tab_len` / `TAB_LEN` a `keep_len()` / `keepLen()`. Musí se ručně udržovat ve shodě. Specifikace počítá s jejich čtením ze SCADu přes `echo`.
 - Spoje jsou ověřené jen geometricky: průnik spojených dílů, dílu s krytem i krytu se sousedem má nulový objem a čep spoje zasahuje 0,7 mm do stěny souseda. **Nevyzkoušel to reálný tisk.** Vůle, výšky čepů a pružnost jazýčků a límce bude potřeba doladit.
 - Sestava je strom s jedním kořenem. První díl nejde smazat ani změnit jeho typ.
 - Délka trasy je součet délek dílů od portu k portu. Jazýčky na volném konci s čepy přesahují o dalších 10 mm.
