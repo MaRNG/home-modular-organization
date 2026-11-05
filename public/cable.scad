@@ -192,6 +192,7 @@ module cable_part(part, len = 80, arm = 40, w = 30, h = 20, t = 2, f = 3, c = 0.
                   slots = false, slot_w = 6, slot_bar = 4, slot_m = 2, slot_a = 45,
                   floor_slots = false, floor_slot_w = 4, floor_slot_bar = 6, floor_slot_m = 4, floor_slot_a = 45,
                   lid = false) {
+  $fn = 32; // i při `use <cable.scad>`, kde se globální $fn nepřebírá
   A = arms(part, len, arm);
   W = w + 2 * t;
   H = f + h;
@@ -228,6 +229,7 @@ module channel2d(A, w, ext) for (a = A) rotate(a[0]) bar2d(-w / 2, a[1] + ext, w
 // Kryt v poloze na dílu: deska z = 0..lid_t, límec pod ní (z < 0).
 module cable_lid(part, len = 80, arm = 40, w = 30, t = 2, c = 0.2, lid_bump = 0.6, lid_t = 2, ch = 0, cj = 0,
                  lid_slots = false, lid_slot_w = 6, lid_slot_bar = 6, lid_slot_m = 2, lid_slot_a = 45) {
+  $fn = 32;
   A = arms(part, len, arm);
   W = w + 2 * t;
   inner = w / 2 - c - lip_w; // vnitřní líc límce
