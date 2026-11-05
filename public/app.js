@@ -41,8 +41,11 @@ const TYPES = {
 };
 
 // = chamfer() v cable.scad: zkosení nesmí prořezat stěnu.
-const maxChamfer = () => Math.max(0, Math.round((state.globals.t - 0.6) * 10) / 10);
-const minArm = (p) => Math.ceil((p.w + 2 * state.globals.t) / 2 + TAB_LEN + 2);
+// = keep_len() v cable.scad: konec ramene bez výřezů (jazýčky, otvory, useknutý roh).
+const keepLen = (p) => Math.max(TAB_LEN + 1, p.ce + 2);
+const minArm = (p) => Math.ceil((p.w + 2 * state.globals.t) / 2 + keepLen(p) + 1);
+const minLen = (p) => Math.ceil(2 * keepLen(p) + 8);
+const maxNotch = (p) => Math.floor(p.h / 2);
 
 // Parametry dílu po skupinách; každou skupinu jde přenést na všechny díly.
 const PART_GROUPS = [
@@ -53,17 +56,16 @@ const PART_GROUPS = [
     params: {
       w: { label: 'Vnitřní šířka', min: 14, max: 80, step: 1 },
       h: { label: 'Vnitřní výška', min: 10, max: 60, step: 1 },
-      len: { label: 'Délka', min: 2 * TAB_LEN + 10, max: 300, step: 5, only: ['straight'] },
+      len: { label: 'Délka', min: minLen, max: 300, step: 5, only: ['straight'] },
       arm: { label: 'Délka ramene (od středu)', min: minArm, max: 200, step: 1, only: ['corner', 'cross'] },
     },
   },
   {
     title: 'Zkosení',
-    apply: ['ch', 'cj'],
+    apply: ['ce'],
     applyLabel: 'Použít zkosení na všechny díly',
     params: {
-      ch: { label: 'Horní hrany stěn (0 = rovné)', min: 0, max: maxChamfer, step: 0.2 },
-      cj: { label: 'Hrany u spojů (0 = rovné)', min: 0, max: maxChamfer, step: 0.2 },
+      ce: { label: 'Useknutý horní roh u spojů (0 = rovný)', min: 0, max: maxNotch, step: 0.5 },
     },
   },
   {
@@ -106,7 +108,7 @@ const PART_GROUPS = [
 ];
 
 const DEFAULT_PARAMS = {
-  w: 30, h: 20, ch: 0, cj: 0,
+  w: 30, h: 20, ce: 0,
   slots: false, slot_w: 6, slot_bar: 4, slot_m: 2, slot_a: 45,
   floor_slots: false, floor_slot_w: 4, floor_slot_bar: 6, floor_slot_m: 4, floor_slot_a: 45,
   lid: false, lid_slots: false, lid_slot_w: 6, lid_slot_bar: 6, lid_slot_m: 2, lid_slot_a: 45,
@@ -146,7 +148,10 @@ function loadState() {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
     if (!saved?.parts?.length) return null;
     saved.globals = { ...DEFAULT_GLOBALS, ...saved.globals };
-    for (const p of saved.parts) p.params = { ...DEFAULT_PARAMS, ...p.params };
+    for (const p of saved.parts) {
+      const { ch, cj, ...params } = p.params; // zrušené zkosení hran z dřívější verze
+      p.params = { ...DEFAULT_PARAMS, ...params };
+    }
     return saved;
   } catch {
     return null;
@@ -180,9 +185,9 @@ function removePart(id) {
 
 function clampSize(part) {
   const p = part.params;
+  p.ce = Math.min(p.ce, maxNotch(p));
   if (p.arm !== undefined) p.arm = Math.max(p.arm, minArm(p));
-  p.ch = Math.min(p.ch, maxChamfer());
-  p.cj = Math.min(p.cj, maxChamfer());
+  if (p.len !== undefined) p.len = Math.max(p.len, minLen(p));
 }
 
 // Port v souřadnicích světa.
@@ -272,7 +277,7 @@ function bodyDefs(part) {
   const p = part.params, g = state.globals;
   return {
     what: 'body', part: part.type, ...sizeParam(part), w: p.w, h: p.h,
-    t: g.t, f: g.f, c: g.c, bump: g.bump, genders: canonical(part).genders, ch: p.ch, cj: p.cj,
+    t: g.t, f: g.f, c: g.c, bump: g.bump, genders: canonical(part).genders, ce: p.ce,
     slots: p.slots, ...enabled(p, 'slots', ['slot_w', 'slot_bar', 'slot_m', 'slot_a']),
     floor_slots: p.floor_slots, ...enabled(p, 'floor_slots', ['floor_slot_w', 'floor_slot_bar', 'floor_slot_m', 'floor_slot_a']),
     lid: p.lid,
@@ -284,7 +289,7 @@ function lidDefs(part) {
   if (!p.lid) return null;
   return {
     what: 'lid', part: part.type, ...sizeParam(part), w: p.w, t: g.t, c: g.c, lid_bump: g.lid_bump, lid_t: g.lid_t,
-    ch: p.ch, cj: p.cj,
+    ce: p.ce,
     lid_slots: p.lid_slots, ...enabled(p, 'lid_slots', ['lid_slot_w', 'lid_slot_bar', 'lid_slot_m', 'lid_slot_a']),
   };
 }
@@ -657,21 +662,21 @@ const sizeLabel = (part) => (part.type === 'straight' ? `délka ${part.params.le
 function bodyLabel(part) {
   const v = variant(part).label;
   return `${TYPES[part.type].label}${v ? ` (${v})` : ''} – ${part.params.w}×${part.params.h}, ${sizeLabel(part)}` +
-    (part.params.ch || part.params.cj ? ', zkosení' : '') + (part.params.slots ? ', výřezy v bocích' : '') + (part.params.floor_slots ? ', výřezy ve dně' : '') +
+    (part.params.ce ? ', zkosení' : '') + (part.params.slots ? ', výřezy v bocích' : '') + (part.params.floor_slots ? ', výřezy ve dně' : '') +
     (part.params.lid ? ', pro kryt' : '');
 }
 
 const lidLabel = (part) =>
   `Kryt – ${TYPES[part.type].lidLabel}, šířka ${part.params.w}, ${sizeLabel(part)}` +
-  (part.params.ch || part.params.cj ? ', zkosení' : '') + (part.params.lid_slots ? ', s výřezy' : '');
+  (part.params.ce ? ', zkosení' : '') + (part.params.lid_slots ? ', s výřezy' : '');
 
 const sizeSlug = (part) => part.params.len ?? part.params.arm;
 const bodyFile = (part) =>
   `${TYPES[part.type].slug}${variant(part).slug}_${part.params.w}x${part.params.h}_${sizeSlug(part)}mm` +
-  `${part.params.ch || part.params.cj ? '_zkos' : ''}${part.params.slots ? '_bok' : ''}${part.params.floor_slots ? '_dno' : ''}${part.params.lid ? '_kryt' : ''}`;
+  `${part.params.ce ? '_zkos' : ''}${part.params.slots ? '_bok' : ''}${part.params.floor_slots ? '_dno' : ''}${part.params.lid ? '_kryt' : ''}`;
 const lidFile = (part) =>
   `kryt-${TYPES[part.type].slug}_${part.params.w}_${sizeSlug(part)}mm` +
-  `${part.params.ch || part.params.cj ? '_zkos' : ''}${part.params.lid_slots ? '_vyrezy' : ''}`;
+  `${part.params.ce ? '_zkos' : ''}${part.params.lid_slots ? '_vyrezy' : ''}`;
 
 function renderPartPanel() {
   const panel = document.getElementById('part-panel');
@@ -685,11 +690,11 @@ function renderPartPanel() {
   panel.innerHTML = `<h2><span class="swatch" style="background:${hex(TYPES[part.type].color)}"></span>` +
     `${TYPES[part.type].label} #${part.id}${v ? ` <small>(${v})</small>` : ''}</h2>`;
 
+  const rows = {};
   for (const group of PART_GROUPS) {
     const section = document.createElement('div');
     section.className = 'group';
     section.innerHTML = `<h3>${group.title}</h3>`;
-    const rows = {};
     for (const [name, def] of Object.entries(group.params)) {
       if (def.only && !def.only.includes(part.type)) continue;
       if (def.needs && !def.needs.every((n) => part.params[n])) continue;
@@ -703,10 +708,13 @@ function renderPartPanel() {
       } else {
         rows[name] = slider(def, part.params[name], () => part.params, (value) => {
           part.params[name] = value;
-          // Šířka mění minimální délku ramene.
+          // Rozměry na sobě závisí (šířka a zkosení mění minimální délku, výška maximum zkosení).
           clampSize(part);
-          rows.arm?.refreshLimits();
-          rows.arm?.setValue(part.params.arm);
+          for (const [other, row] of Object.entries(rows)) {
+            if (other === name || !row.refreshLimits) continue;
+            row.refreshLimits();
+            row.setValue(part.params[other]);
+          }
           changed();
           refreshGeometry(part, 200);
         });

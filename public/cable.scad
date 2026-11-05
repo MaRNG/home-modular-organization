@@ -9,8 +9,9 @@
 // Žebrování = průhledové výřezy skrz stěny, dno nebo kryt; mezi výřezy
 // zůstávají žebra. Výřezy můžou být šikmé (úhel od svislice / od příčného směru).
 //
-// Zkosení: horní vnější hrany stěn (ch) a svislé vnější hrany na koncích
-// dílů u spojů (cj); obojí platí i pro kryt.
+// Zkosení (ce): u spojů se šikmo (45°) usekne horní roh bočních stěn, takže
+// mezi sousedními díly vznikne shora zářez do V. Kryt je na koncích kratší
+// a jeho čela pokračují ve stejné šikmé rovině.
 //
 // Souřadnice: dno leží v rovině z = 0. Díl se skládá z ramen vycházejících
 // ze středu; port = střed čela ramene v rovině dna, úhel = směr ven.
@@ -33,8 +34,7 @@ bump = 0.9;    // výška čepu spoje dílů
 lid_bump = 0.6; // výška čepu krytu
 
 /* [Zkosení] */
-ch = 0; // horní vnější hrany stěn, 0 = bez zkosení
-cj = 0; // svislé hrany na koncích u spojů, 0 = bez zkosení
+ce = 0; // velikost useknutého horního rohu u spojů, 0 = bez zkosení
 
 /* [Výřezy v bocích] */
 slots    = false;
@@ -70,13 +70,13 @@ lid_bump_z = 2.4; // hloubka čepu krytu pod horní hranou stěny
 $fn = 32;
 
 if (what == "body")
-  cable_part(part, len, arm, w, h, t, f, c, bump, genders, ch, cj,
+  cable_part(part, len, arm, w, h, t, f, c, bump, genders, ce,
              slots, slot_w, slot_bar, slot_m, slot_a,
              floor_slots, floor_slot_w, floor_slot_bar, floor_slot_m, floor_slot_a, lid);
 else if (what == "lid")
   // Tisková orientace: deska krytu na podložce, límec nahoru.
   rotate([180, 0, 0]) translate([0, 0, -lid_t])
-    cable_lid(part, len, arm, w, t, c, lid_bump, lid_t, ch, cj,
+    cable_lid(part, len, arm, w, t, c, lid_bump, lid_t, ce,
               lid_slots, lid_slot_w, lid_slot_bar, lid_slot_m, lid_slot_a);
 
 // Ramena dílu: [úhel, délka od středu k portu].
@@ -85,16 +85,19 @@ function arms(part, len, arm) =
   part == "corner"   ? [[180, arm], [90, arm]] :
                        [[0, arm], [90, arm], [180, arm], [270, arm]];
 
-// Úseky ramen bez spojů na koncích: [úhel, x0, x1]. Na koncích jsou jazýčky
-// nebo otvory pro čepy, takže se tam nic nevyřezává.
-function free_segments(part, len, arm, W) =
-  let (keep = tab_len + 1)
+// Kolik se na konci ramene nechává bez výřezů a čepů krytu: jazýčky,
+// otvory pro čepy a useknutý roh. Musí odpovídat keepLen() v app.js.
+function keep_len(ce) = max(tab_len + 1, ce + 2);
+
+// Úseky ramen bez spojů na koncích: [úhel, x0, x1].
+function free_segments(part, len, arm, W, ce) =
+  let (keep = keep_len(ce))
   part == "straight" ? [[0, -len / 2 + keep, len / 2 - keep]]
                      : [for (a = arms(part, len, arm)) [a[0], W / 2, a[1] - keep]];
 
 // Polohy čepů krytu: [úhel, x] – na každém volném úseku kraje, nebo střed.
-function lid_snaps(part, len, arm, W) =
-  [for (sg = free_segments(part, len, arm, W))
+function lid_snaps(part, len, arm, W, ce) =
+  [for (sg = free_segments(part, len, arm, W, ce))
      each (sg[2] - sg[1] > 30 ? [[sg[0], sg[1] + 4], [sg[0], sg[2] - 4]]
                               : [[sg[0], (sg[1] + sg[2]) / 2]])];
 
@@ -106,31 +109,26 @@ function tab_z1(f, h, c) = f + h - lip_d - c;
 module bar(x0, x1, W, H) translate([x0, -W / 2, 0]) cube([x1 - x0, W, H]);
 module bar2d(x0, x1, W) translate([x0, -W / 2]) square([x1 - x0, W]);
 
-// Zkosení nesmí prořezat stěnu ani kryt.
-function chamfer(v, thickness) = max(0, min(v, thickness - 0.6));
-
 // Zkosení x podle z (kolem výšky zc), resp. x podle y.
 module shear_xz(k, zc) multmatrix([[1, 0, k, -k * zc], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]) children();
 module shear_yz(k, zc) multmatrix([[1, 0, 0, 0], [0, 1, k, -k * zc], [0, 0, 1, 0], [0, 0, 0, 1]]) children();
 module shear_xy(k) multmatrix([[1, k, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]) children();
 
-// Rameno se zkosenými podélnými horními hranami a zkoseným vnitřním koncem.
-// Konec u portu zůstává rovný, navazuje na souseda. Vnitřní konec je
-// u rovného dílu i křižovatky schovaný v protějším rameni, u zatáčky tvoří vnější roh.
-module arm_block(L, W, H, e) {
-  if (e <= 0) bar(-W / 2, L, W, H);
-  else hull() {
-    bar(-W / 2, L, W, H - e);
-    translate([0, 0, H - 0.01]) bar(-W / 2 + e, L, W - 2 * e, 0.01);
-  }
+// Zářez do V na konci ramene (konec je v x = L): useknutý horní roh stěn
+// dílu a stejně zkosené jazýčky souseda, které do zářezu zasahují.
+module end_notch(L, W, H, e) {
+  if (e > 0)
+    rotate([90, 0, 0]) linear_extrude(W + 2, center = true)
+      polygon([[L - e - 0.01, H + 0.01], [L, H - e - 0.01], [L + e + 0.01, H + 0.01]]);
 }
 
-// Zkosení svislých vnějších hran na konci ramene (konec je v x = L).
-module joint_chamfer(L, W, H, e) {
+// Šikmé čelo krytu na konci ramene: rovina navazuje na useknutý roh stěny
+// (v souřadnicích krytu leží horní hrana stěny v z = 0).
+module lid_end_cut(L, W, lid_t, e) {
   if (e > 0)
-    for (m = [0, 1]) mirror([0, m, 0])
-      translate([0, 0, -1]) linear_extrude(H + 2)
-        polygon([[L + 0.01, W / 2 + 0.01], [L - e, W / 2 + 0.01], [L + 0.01, W / 2 - e]]);
+    rotate([90, 0, 0]) linear_extrude(W + 2, center = true)
+      polygon([[L - e - lid_t - 1, lid_t + 1], [L - e + lip_d + 1, -lip_d - 1],
+               [L + lip_d + lid_t + 2, -lip_d - 1], [L + lip_d + lid_t + 2, lid_t + 1]]);
 }
 
 // Středy rovnoměrně rozložených výřezů šířky sw s žebry šířky sb v intervalu [x0, x1].
@@ -142,7 +140,7 @@ function spread(x0, x1, sw, sb) =
 // Výřezy v bočních stěnách. Šikmé výřezy mají na protilehlé stěně opačný
 // sklon, takže z vnějšku vypadají obě stěny stejně a díl zůstává souměrný
 // při otočení (kvůli slučování stejných dílů do jednoho STL).
-module side_slots(part, len, arm, w, h, t, f, sw, sb, m, ang) {
+module side_slots(part, len, arm, w, h, t, f, sw, sb, m, ang, ce) {
   W = w + 2 * t;
   z0 = f + m;
   z1 = f + h - lip_d - m;
@@ -150,7 +148,7 @@ module side_slots(part, len, arm, w, h, t, f, sw, sb, m, ang) {
   k = tan(ang);
   off = abs(k) * (z1 - z0);
   if (z1 > z0) {
-    for (sg = free_segments(part, len, arm, W)) rotate(sg[0])
+    for (sg = free_segments(part, len, arm, W, ce)) rotate(sg[0])
       for (side = [1, -1])
         for (x = spread(sg[1] + m + off / 2, sg[2] - m - off / 2, sw, sb))
           shear_xz(side * k, zc)
@@ -165,11 +163,11 @@ module side_slots(part, len, arm, w, h, t, f, sw, sb, m, ang) {
 }
 
 // Výřezy skrz dno.
-module floor_slots_cut(part, len, arm, w, t, f, sw, sb, m, ang) {
+module floor_slots_cut(part, len, arm, w, t, f, sw, sb, m, ang, ce) {
   W = w + 2 * t;
   k = tan(ang);
   off = abs(k) * (w - 2 * m);
-  for (sg = free_segments(part, len, arm, W)) rotate(sg[0])
+  for (sg = free_segments(part, len, arm, W, ce)) rotate(sg[0])
     for (x = spread(sg[1] + m + off / 2, sg[2] - m - off / 2, sw, sb))
       shear_xy(k) translate([x - sw / 2, -(w / 2 - m), -1]) cube([sw, w - 2 * m, f + 2]);
 }
@@ -188,7 +186,7 @@ module male_tabs(L, w, h, t, f, c, bump) {
 }
 
 module cable_part(part, len = 80, arm = 40, w = 30, h = 20, t = 2, f = 3, c = 0.2, bump = 0.9,
-                  genders = "FM", ch = 0, cj = 0,
+                  genders = "FM", ce = 0,
                   slots = false, slot_w = 6, slot_bar = 4, slot_m = 2, slot_a = 45,
                   floor_slots = false, floor_slot_w = 4, floor_slot_bar = 6, floor_slot_m = 4, floor_slot_a = 45,
                   lid = false) {
@@ -196,12 +194,11 @@ module cable_part(part, len = 80, arm = 40, w = 30, h = 20, t = 2, f = 3, c = 0.
   A = arms(part, len, arm);
   W = w + 2 * t;
   H = f + h;
-  e = chamfer(ch, t);
   zc = (tab_z0(f, c) + tab_z1(f, h, c)) / 2;
   difference() {
     union() {
       difference() {
-        for (a = A) rotate(a[0]) arm_block(a[1], W, H, e);
+        for (a = A) rotate(a[0]) bar(-W / 2, a[1], W, H);
         translate([0, 0, f]) for (a = A) rotate(a[0]) bar(-w / 2, a[1] + 1, w, h + 1);
       }
       for (i = [0 : len(A) - 1])
@@ -214,12 +211,12 @@ module cable_part(part, len = 80, arm = 40, w = 30, h = 20, t = 2, f = 3, c = 0.
           rotate([90, 0, 0]) cylinder(r = bump_r + c, h = W + 2, center = true);
     // Otvory pro čepy krytu.
     if (lid)
-      for (s = lid_snaps(part, len, arm, W))
+      for (s = lid_snaps(part, len, arm, W, ce))
         rotate(s[0]) translate([s[1], 0, H - lid_bump_z])
           rotate([90, 0, 0]) cylinder(r = lid_bump_r + c, h = W + 2, center = true);
-    for (a = A) rotate(a[0]) joint_chamfer(a[1], W, H, chamfer(cj, t));
-    if (slots) side_slots(part, len, arm, w, h, t, f, slot_w, slot_bar, slot_m, slot_a);
-    if (floor_slots) floor_slots_cut(part, len, arm, w, t, f, floor_slot_w, floor_slot_bar, floor_slot_m, floor_slot_a);
+    for (a = A) rotate(a[0]) end_notch(a[1], W, H, ce);
+    if (slots) side_slots(part, len, arm, w, h, t, f, slot_w, slot_bar, slot_m, slot_a, ce);
+    if (floor_slots) floor_slots_cut(part, len, arm, w, t, f, floor_slot_w, floor_slot_bar, floor_slot_m, floor_slot_a, ce);
   }
 }
 
@@ -227,7 +224,7 @@ module footprint(A, W) for (a = A) rotate(a[0]) bar2d(-W / 2, a[1], W);
 module channel2d(A, w, ext) for (a = A) rotate(a[0]) bar2d(-w / 2, a[1] + ext, w);
 
 // Kryt v poloze na dílu: deska z = 0..lid_t, límec pod ní (z < 0).
-module cable_lid(part, len = 80, arm = 40, w = 30, t = 2, c = 0.2, lid_bump = 0.6, lid_t = 2, ch = 0, cj = 0,
+module cable_lid(part, len = 80, arm = 40, w = 30, t = 2, c = 0.2, lid_bump = 0.6, lid_t = 2, ce = 0,
                  lid_slots = false, lid_slot_w = 6, lid_slot_bar = 6, lid_slot_m = 2, lid_slot_a = 45) {
   $fn = 32;
   A = arms(part, len, arm);
@@ -237,23 +234,25 @@ module cable_lid(part, len = 80, arm = 40, w = 30, t = 2, c = 0.2, lid_bump = 0.
   k = tan(lid_slot_a);
   off = abs(k) * 2 * half;
   difference() {
-    for (a = A) rotate(a[0]) arm_block(a[1], W, lid_t, chamfer(ch, lid_t));
-    for (a = A) rotate(a[0]) joint_chamfer(a[1], W, lid_t, chamfer(cj, t));
+    union() {
+      linear_extrude(lid_t) footprint(A, W);
+      translate([0, 0, -lip_d]) linear_extrude(lip_d + 0.01) intersection() {
+        footprint(A, W);
+        difference() {
+          offset(delta = -c) channel2d(A, w, 5);
+          offset(delta = -c - lip_w) channel2d(A, w, 5);
+        }
+      }
+      // Čepy na vnější straně límce.
+      for (s = lid_snaps(part, len, arm, W, ce)) rotate(s[0])
+        for (m = [0, 1]) mirror([0, m, 0])
+          translate([s[1], w / 2 - c - 0.01, -lid_bump_z])
+            rotate([-90, 0, 0]) cylinder(h = lid_bump + 0.01, r1 = lid_bump_r, r2 = lid_bump_r * 0.55);
+    }
+    for (a = A) rotate(a[0]) lid_end_cut(a[1], W, lid_t, ce);
     if (lid_slots && half > 0)
-      for (sg = free_segments(part, len, arm, W)) rotate(sg[0])
+      for (sg = free_segments(part, len, arm, W, ce)) rotate(sg[0])
         for (x = spread(sg[1] + lid_slot_m + off / 2, sg[2] - lid_slot_m - off / 2, lid_slot_w, lid_slot_bar))
           shear_xy(k) translate([x - lid_slot_w / 2, -half, -1]) cube([lid_slot_w, 2 * half, lid_t + 2]);
   }
-  translate([0, 0, -lip_d]) linear_extrude(lip_d + 0.01) intersection() {
-    footprint(A, W);
-    difference() {
-      offset(delta = -c) channel2d(A, w, 5);
-      offset(delta = -c - lip_w) channel2d(A, w, 5);
-    }
-  }
-  // Čepy na vnější straně límce.
-  for (s = lid_snaps(part, len, arm, W)) rotate(s[0])
-    for (m = [0, 1]) mirror([0, m, 0])
-      translate([s[1], w / 2 - c - 0.01, -lid_bump_z])
-        rotate([-90, 0, 0]) cylinder(h = lid_bump + 0.01, r1 = lid_bump_r, r2 = lid_bump_r * 0.55);
 }
