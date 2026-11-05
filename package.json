@@ -1,0 +1,15 @@
+{
+  "name": "scad-online-demo",
+  "version": "1.0.0",
+  "description": "Modulární konfigurátor kabelového žlabu nad OpenSCAD WASM",
+  "scripts": {
+    "vendor": "bash scripts/vendor.sh"
+  },
+  "author": "",
+  "license": "GPL-2.0-or-later",
+  "dependencies": {
+    "fflate": "^0.8.3",
+    "three": "^0.187.0"
+  },
+  "private": true
+}
