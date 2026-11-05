@@ -5,13 +5,17 @@ import { zipSync, strToU8 } from './vendor/fflate.js';
 
 // ---------------------------------------------------------------------------
 // Komponenty
-// Polohy portů musí odpovídat funkci arms() v cable.scad. Port = [x, y, úhel směru ven].
+// Polohy portů musí odpovídat funkci arms() v cable.scad. Port = poloha p (střed čela
+// na vnější straně dna), směr ven d a směr otevřené strany kanálu u.
 // Konec portu je buď F (otvory ve stěnách), nebo M (jazýčky s čepy).
 
 const TAB_LEN = 10; // = tab_len v cable.scad
 const cosd = (a) => Math.cos((a * Math.PI) / 180);
 const sind = (a) => Math.sin((a * Math.PI) / 180);
 const rad = (a) => (a * Math.PI) / 180;
+
+// Port vodorovného ramene: v rovině dna, otevřená strana nahoru.
+const flat = (x, y, a) => ({ p: [x, y, 0], d: [cosd(a), sind(a), 0], u: [0, 0, 1] });
 
 const TYPES = {
   straight: {
@@ -20,7 +24,7 @@ const TYPES = {
     slug: 'rovny',
     color: 0x4e8fd8,
     sym: 2, // počet otočení kolem Z, ve kterých díl vypadá stejně
-    ports: (p) => [[-p.len / 2, 0, 180], [p.len / 2, 0, 0]],
+    ports: (p) => [flat(-p.len / 2, 0, 180), flat(p.len / 2, 0, 0)],
   },
   corner: {
     label: 'Zatáčka L',
@@ -28,7 +32,7 @@ const TYPES = {
     slug: 'zatacka',
     color: 0xe39b3a,
     sym: 1,
-    ports: (p) => [[-p.arm, 0, 180], [0, p.arm, 90]],
+    ports: (p) => [flat(-p.arm, 0, 180), flat(0, p.arm, 90)],
   },
   cross: {
     label: 'Křižovatka +',
@@ -36,14 +40,40 @@ const TYPES = {
     slug: 'krizovatka',
     color: 0x5bb36a,
     sym: 4,
-    ports: (p) => [0, 90, 180, 270].map((a) => [p.arm * cosd(a), p.arm * sind(a), a]),
+    ports: (p) => [0, 90, 180, 270].map((a) => flat(p.arm * cosd(a), p.arm * sind(a), a)),
+  },
+  // Vnitřní roh, např. ze stolu na stěnu: svislé rameno jde nahoru, otevřená strana míří zpět.
+  up: {
+    label: 'Zatáčka nahoru',
+    lidLabel: 'zatáčka nahoru',
+    slug: 'nahoru',
+    color: 0x8f6ad8,
+    sym: 1,
+    ports: (p) => [flat(-p.arm, 0, 180), { p: [0, 0, p.arm], d: [0, 0, 1], u: [-1, 0, 0] }],
+  },
+  // Vnější roh přes hranu stolu: svislé rameno jde dolů, otevřená strana míří ven.
+  down: {
+    label: 'Zatáčka dolů',
+    lidLabel: 'zatáčka dolů',
+    slug: 'dolu',
+    color: 0xd0608f,
+    sym: 1,
+    ports: (p) => [flat(-p.arm, 0, 180), { p: [0, 0, -p.arm], d: [0, 0, -1], u: [1, 0, 0] }],
   },
 };
+
+const isBend = (type) => type === 'up' || type === 'down';
 
 // = chamfer() v cable.scad: zkosení nesmí prořezat stěnu.
 // = keep_len() v cable.scad: konec ramene bez výřezů (jazýčky, otvory, useknutý roh).
 const keepLen = (p) => Math.max(TAB_LEN + 1, p.ce + 2);
-const minArm = (p) => Math.ceil((p.w + 2 * state.globals.t) / 2 + keepLen(p) + 1);
+// Rovný úsek ramene musí začínat za středem dílu, resp. za ohybem (= seg_start() v cable.scad).
+function minArm(part) {
+  const p = part.params, g = state.globals;
+  if (part.type === 'up') return Math.ceil(g.f + p.h + 4 + keepLen(p) + 2);
+  if (part.type === 'down') return Math.ceil(g.f + 1 + keepLen(p) + 2);
+  return Math.ceil((p.w + 2 * g.t) / 2 + keepLen(p) + 1);
+}
 const minLen = (p) => Math.ceil(2 * keepLen(p) + 8);
 const maxNotch = (p) => Math.floor(p.h / 2);
 
@@ -56,8 +86,8 @@ const PART_GROUPS = [
     params: {
       w: { label: 'Vnitřní šířka', min: 14, max: 80, step: 1 },
       h: { label: 'Vnitřní výška', min: 10, max: 60, step: 1 },
-      len: { label: 'Délka', min: minLen, max: 300, step: 5, only: ['straight'] },
-      arm: { label: 'Délka ramene (od středu)', min: minArm, max: 200, step: 1, only: ['corner', 'cross'] },
+      len: { label: 'Délka', min: (part) => minLen(part.params), max: 300, step: 5, only: ['straight'] },
+      arm: { label: 'Délka ramene (od středu)', min: minArm, max: 200, step: 1, only: ['corner', 'cross', 'up', 'down'] },
     },
   },
   {
@@ -65,7 +95,7 @@ const PART_GROUPS = [
     apply: ['ce'],
     applyLabel: 'Použít zkosení na všechny díly',
     params: {
-      ce: { label: 'Useknutý horní roh u spojů (0 = rovný)', min: 0, max: maxNotch, step: 0.5 },
+      ce: { label: 'Useknutý horní roh u spojů (0 = rovný)', min: 0, max: (part) => maxNotch(part.params), step: 0.5 },
     },
   },
   {
@@ -143,9 +173,10 @@ function emptyState() {
 function singlePartState(type) {
   const s = emptyState();
   const params = { ...DEFAULT_PARAMS };
+  const part = { id: s.nextId++, type, params, parent: null };
   if (type === 'straight') params.len = 80;
-  else params.arm = 40;
-  s.parts.push({ id: s.nextId++, type, params, parent: null });
+  else params.arm = Math.max(40, minArm(part));
+  s.parts.push(part);
   return s;
 }
 
@@ -172,7 +203,8 @@ function loadState() {
   }
 }
 
-const serialize = (space) => JSON.stringify(state, (k, v) => (k === 'used' ? undefined : v), space);
+const serialize = (space) =>
+  JSON.stringify(state, (k, v) => (k === 'used' || k === 'matrix' ? undefined : v), space);
 
 function saveState() {
   localStorage.setItem(STORAGE_KEY, serialize());
@@ -183,9 +215,9 @@ const partById = (id) => state.parts.find((p) => p.id === id);
 function addPart(type, parentId, parentPort, ownPort) {
   const parent = partById(parentId);
   const { len, arm, ...params } = parent.params;
-  if (type === 'straight') params.len = 80;
-  else params.arm = Math.max(40, minArm(params));
   const part = { id: state.nextId++, type, params, parent: parentId, parentPort, port: ownPort };
+  if (type === 'straight') params.len = 80;
+  else params.arm = Math.max(40, minArm(part));
   state.parts.push(part);
   return part;
 }
@@ -257,31 +289,41 @@ function syncRun() {
 function clampSize(part) {
   const p = part.params;
   p.ce = Math.min(p.ce, maxNotch(p));
-  if (p.arm !== undefined) p.arm = Math.max(p.arm, minArm(p));
+  if (p.arm !== undefined) p.arm = Math.max(p.arm, minArm(part));
   // Délky dílů rovné trasy hlídá syncRun() přes počet dílů.
   if (p.len !== undefined && !isRunPart(part)) p.len = Math.max(p.len, minLen(p));
 }
 
+// Rámec portu: x = směr ven, z = otevřená strana kanálu, počátek ve středu čela.
+function portMatrix({ p, d, u }) {
+  const x = new THREE.Vector3(...d);
+  const z = new THREE.Vector3(...u);
+  return new THREE.Matrix4().makeBasis(x, z.clone().cross(x), z).setPosition(...p);
+}
+
+// Otočení o 180° kolem otevřené strany: port souseda míří proti, otevřená strana stejně.
+const TURN = new THREE.Matrix4().makeRotationZ(Math.PI);
+
 // Port v souřadnicích světa.
 function worldPort(part, index) {
-  const [x, y, a] = TYPES[part.type].ports(part.params)[index];
+  const m = part.matrix.clone().multiply(portMatrix(TYPES[part.type].ports(part.params)[index]));
   return {
-    x: part.x + x * cosd(part.rot) - y * sind(part.rot),
-    y: part.y + x * sind(part.rot) + y * cosd(part.rot),
-    a: part.rot + a,
+    pos: new THREE.Vector3().setFromMatrixPosition(m),
+    d: new THREE.Vector3().setFromMatrixColumn(m, 0),
+    u: new THREE.Vector3().setFromMatrixColumn(m, 2),
   };
 }
 
 const opposite = (g) => (g === 'F' ? 'M' : 'F');
 
-// Dopočítá x, y, rot, pohlaví portů a obsazenost portů všech dílů.
+// Dopočítá polohu (part.matrix), pohlaví portů a obsazenost portů všech dílů.
 function layout() {
   for (const part of state.parts) {
     part.used = new Set();
-    const n = TYPES[part.type].ports(part.params).length;
+    const ports = TYPES[part.type].ports(part.params);
     if (part.parent === null) {
-      Object.assign(part, { x: 0, y: 0, rot: 0 });
-      part.genders = Array.from({ length: n }, (_, i) => (i === 0 ? 'F' : 'M'));
+      part.matrix = new THREE.Matrix4();
+      part.genders = ports.map((_, i) => (i === 0 ? 'F' : 'M'));
       continue;
     }
     const parent = partById(part.parent);
@@ -289,12 +331,12 @@ function layout() {
     part.used.add(part.port);
     // Připojený konec má opačné pohlaví než rodič, ostatní konce pokračují stejně jako rodič.
     const g = parent.genders[part.parentPort];
-    part.genders = Array.from({ length: n }, (_, i) => (i === part.port ? opposite(g) : g));
-    const target = worldPort(parent, part.parentPort);
-    const [px, py, pa] = TYPES[part.type].ports(part.params)[part.port];
-    part.rot = (((target.a + 180 - pa) % 360) + 360) % 360;
-    part.x = target.x - (px * cosd(part.rot) - py * sind(part.rot));
-    part.y = target.y - (px * sind(part.rot) + py * cosd(part.rot));
+    part.genders = ports.map((_, i) => (i === part.port ? opposite(g) : g));
+    // Vlastní port dílu se položí na port rodiče otočený o 180°.
+    part.matrix = parent.matrix.clone()
+      .multiply(portMatrix(TYPES[parent.type].ports(parent.params)[part.parentPort]))
+      .multiply(TURN)
+      .multiply(portMatrix(ports[part.port]).invert());
   }
 
   // Uzavřené smyčky: volné porty opačného pohlaví, které na sebe přesně lícují, se spojí taky.
@@ -309,8 +351,7 @@ function layout() {
       const a = free[i], b = free[j];
       if (a.part === b.part || a.part.used.has(a.i) || b.part.used.has(b.i)) continue;
       if (a.part.genders[a.i] === b.part.genders[b.i]) continue;
-      const facing = Math.abs((((a.a - b.a) % 360) + 360) % 360 - 180) < 1;
-      if (facing && Math.hypot(a.x - b.x, a.y - b.y) < 0.5) {
+      if (a.pos.distanceTo(b.pos) < 0.5 && a.d.dot(b.d) < -0.999 && a.u.dot(b.u) > 0.999) {
         a.part.used.add(a.i);
         b.part.used.add(b.i);
       }
@@ -356,14 +397,21 @@ function bodyDefs(part) {
   };
 }
 
+// Kryt k tisku. Kryt vodorovného dílu nezávisí na výšce dílu, kryt ohybu ano.
 function lidDefs(part) {
   const p = part.params, g = state.globals;
   if (!p.lid) return null;
   return {
     what: 'lid', part: part.type, ...sizeParam(part), w: p.w, t: g.t, c: g.c, lid_bump: g.lid_bump, lid_t: g.lid_t,
-    ce: p.ce,
+    ce: p.ce, ...(isBend(part.type) ? { h: p.h, f: g.f } : {}),
     lid_slots: p.lid_slots, ...enabled(p, 'lid_slots', ['lid_slot_w', 'lid_slot_bar', 'lid_slot_m', 'lid_slot_a']),
   };
+}
+
+// Kryt v poloze na dílu, pro náhled a sestavu.
+function lidViewDefs(part) {
+  const defs = lidDefs(part);
+  return defs && { ...defs, what: 'lid_view', h: part.params.h, f: state.globals.f };
 }
 
 const defsKey = (defs) => JSON.stringify(defs);
@@ -503,8 +551,8 @@ function makePart3d(part) {
     body: mesh(color),
     lid: mesh(color.clone().lerp(new THREE.Color(0xffffff), 0.45)),
   };
-  // Kryt je vyrenderovaný v tiskové orientaci, na díl se otočí vzhůru nohama.
-  o.lid.rotation.x = Math.PI;
+  // Poloha dílu se počítá jako matice (díly můžou být i svislé).
+  o.group.matrixAutoUpdate = false;
   o.group.add(o.body, o.lid);
   partGroup.add(o.group);
   return o;
@@ -524,10 +572,9 @@ function syncScene() {
   for (const part of state.parts) {
     if (!parts3d.has(part.id)) parts3d.set(part.id, makePart3d(part));
     const o = parts3d.get(part.id);
-    o.group.position.set(part.x, part.y, 0);
-    o.group.rotation.z = rad(part.rot);
+    o.group.matrix.copy(part.matrix);
+    o.group.matrixWorldNeedsUpdate = true;
     o.body.rotation.z = rad(canonical(part).rot);
-    o.lid.position.z = state.globals.f + part.params.h + state.globals.lid_t;
     o.lid.visible = part.params.lid && showLids;
     const glow = part.id === selectedId ? 0x553300 : 0x000000;
     o.body.material.emissive.setHex(glow);
@@ -552,8 +599,8 @@ function rebuildPortMarkers() {
       marker.add(new THREE.Mesh(coneGeometry, markerMaterial), new THREE.Mesh(ballGeometry, markerMaterial));
       // Konec s čepy má jazýčky přesahující přes port, šipka je proto o kus dál.
       const reach = gender === 'M' ? TAB_LEN : 0;
-      marker.position.set(p.x + reach * cosd(p.a), p.y + reach * sind(p.a), state.globals.f + part.params.h / 2);
-      marker.rotation.z = rad(p.a);
+      marker.position.copy(p.pos).addScaledVector(p.d, reach).addScaledVector(p.u, state.globals.f + part.params.h / 2);
+      marker.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(p.d, p.u.clone().cross(p.d), p.u));
       marker.userData.port = { partId: part.id, index: i };
       portGroup.add(marker);
     });
@@ -567,7 +614,7 @@ function refreshGeometry(part, delay = 0) {
   clearTimeout(renderTimers.get(part.id));
   renderTimers.set(part.id, setTimeout(() => {
     renderTimers.delete(part.id);
-    const slots = { body: bodyDefs, lid: lidDefs };
+    const slots = { body: bodyDefs, lid: lidViewDefs };
     for (const [slot, defsOf] of Object.entries(slots)) {
       const defs = defsOf(part);
       if (!defs) continue;
@@ -734,6 +781,11 @@ function variant(part) {
     const m = [...g].filter((x) => x === 'M').length;
     return { label: `${m}× čepy, ${4 - m}× otvory`, slug: `-${m}cepy` };
   }
+  // Ohyb s čepy dole a s čepy nahoře jsou dva různé díly.
+  if (isBend(part.type)) {
+    return g[0] === 'F' ? { label: 'čepy na svislém konci', slug: '-cepy-svisle' }
+                        : { label: 'čepy na vodorovném konci', slug: '-cepy-vodorovne' };
+  }
   return { label: '', slug: '' };
 }
 
@@ -767,8 +819,17 @@ function renderPartPanel() {
     return;
   }
   const v = variant(part).label;
+  const targets = [part];
   panel.innerHTML = `<h2><span class="swatch" style="background:${hex(TYPES[part.type].color)}"></span>` +
     `${TYPES[part.type].label} #${part.id}${v ? ` <small>(${v})</small>` : ''}</h2>`;
+  const setParam = (name, value, delay) => {
+    for (const p of targets) {
+      p.params[name] = value;
+      clampSize(p);
+      refreshGeometry(p, delay);
+    }
+    changed();
+  };
 
   const rows = {};
   for (const group of PART_GROUPS) {
@@ -787,23 +848,18 @@ function renderPartPanel() {
       }
       if (def.type === 'bool') {
         rows[name] = checkbox(def, part.params[name], (value) => {
-          part.params[name] = value;
-          changed();
-          refreshGeometry(part);
+          setParam(name, value, 0);
           renderPartPanel();
         });
       } else {
-        rows[name] = slider(def, part.params[name], () => part.params, (value) => {
-          part.params[name] = value;
+        rows[name] = slider(def, part.params[name], () => part, (value) => {
+          setParam(name, value, 200);
           // Rozměry na sobě závisí (šířka a zkosení mění minimální délku, výška maximum zkosení).
-          clampSize(part);
           for (const [other, row] of Object.entries(rows)) {
             if (other === name || !row.refreshLimits) continue;
             row.refreshLimits();
             row.setValue(part.params[other]);
           }
-          changed();
-          refreshGeometry(part, 200);
         });
       }
       section.append(rows[name]);
@@ -937,11 +993,13 @@ function scadArgs(defs) {
 function assemblyScad() {
   const lines = [];
   for (const p of state.parts) {
-    const at = (z) => `translate([${p.x.toFixed(3)}, ${p.y.toFixed(3)}, ${z}]) rotate(${p.rot})`;
+    // Matice v řádcích; three.js ji drží po sloupcích.
+    const e = p.matrix.elements.map((v) => +v.toFixed(4));
+    const at = `multmatrix([${[0, 1, 2, 3].map((r) => `[${e[r]}, ${e[r + 4]}, ${e[r + 8]}, ${e[r + 12]}]`).join(', ')}])`;
     // V sestavě se díl kreslí se skutečným pořadím pohlaví portů, ne kanonickým.
-    lines.push(`${at(0)} cable_part(${scadArgs({ ...bodyDefs(p), genders: p.genders.join('') })});`);
-    const lid = lidDefs(p);
-    if (lid) lines.push(`${at(state.globals.f + p.params.h)} cable_lid(${scadArgs(lid)});`);
+    lines.push(`${at} cable_part(${scadArgs({ ...bodyDefs(p), genders: p.genders.join('') })});`);
+    const lid = lidViewDefs(p);
+    if (lid) lines.push(`${at} cable_lid_placed(${scadArgs(lid)});`);
   }
   return `// Vygenerováno konfigurátorem kabelového žlabu\nuse <cable.scad>\n\n${lines.join('\n')}\n`;
 }
@@ -979,7 +1037,7 @@ document.getElementById('export-stl').onclick = async () => {
   for (const part of state.parts) {
     const o = parts3d.get(part.id);
     pieces.push({ defs: bodyDefs(part), matrix: o.body.matrixWorld });
-    const lid = lidDefs(part);
+    const lid = lidViewDefs(part);
     if (lid) pieces.push({ defs: lid, matrix: o.lid.matrixWorld });
   }
   const tris = [];
