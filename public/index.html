@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kabelový žlab – modulární konfigurátor</title>
+  <link rel="stylesheet" href="style.css">
+  <script type="importmap">
+    { "imports": {
+        "three": "./vendor/three/three.module.js",
+        "three/addons/": "./vendor/three/addons/"
+    } }
+  </script>
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <main id="viewport">
+    <div id="status" role="status">Načítám OpenSCAD…</div>
+    <div id="hint">Klikni na díl pro úpravu · zelená šipka = připojit další díl · táhni pro otáčení, kolečko pro zoom</div>
+    <div id="port-menu" hidden>
+      <button data-add="straight" data-port="0">━ Rovný díl</button>
+      <button data-add="corner" data-port="0">↰ Zatáčka doleva</button>
+      <button data-add="corner" data-port="1">↱ Zatáčka doprava</button>
+      <button data-add="cross" data-port="0">╋ Křižovatka</button>
+    </div>
+  </main>
+
+  <aside id="sidebar">
+    <h1>Kabelový žlab</h1>
+
+    <section id="part-panel"></section>
+
+    <section>
+      <h2>Celá sestava</h2>
+      <p class="note">Platí pro všechny díly, aby do sebe zacvakly.</p>
+      <div id="global-panel"></div>
+    </section>
+
+    <section>
+      <h2>Díly k tisku</h2>
+      <p class="note" id="print-summary"></p>
+      <ul id="print-list"></ul>
+    </section>
+
+    <section class="actions">
+      <button id="export-zip" class="primary">Stáhnout díly k tisku (ZIP)</button>
+      <button id="export-stl">Stáhnout sestavu jako STL</button>
+      <button id="fit">Zobrazit vše</button>
+      <button id="reset">Nová sestava</button>
+    </section>
+  </aside>
+</body>
+</html>
