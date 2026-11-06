@@ -3,7 +3,9 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Modulární organizace domácnosti</title>
+  <title>MOD · Modulární organizace domácnosti</title>
+  <link rel="preload" href="vendor/fonts/barlow-semi-condensed-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="vendor/fonts/jetbrains-mono-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="style.css">
   <script type="importmap">
     { "imports": {
@@ -14,47 +16,91 @@
   <script type="module" src="app.js"></script>
 </head>
 <body>
-  <main id="viewport">
-    <div id="status" role="status">Načítám OpenSCAD…</div>
-    <div id="hint">Klikni na díl pro úpravu · zelená šipka = připojit další díl · táhni pro otáčení, kolečko pro zoom</div>
-    <div id="port-menu" hidden>
-      <button data-add="straight" data-port="0">━ Rovný díl</button>
-      <button data-add="corner" data-port="0">↰ Zatáčka doleva</button>
-      <button data-add="corner" data-port="1">↱ Zatáčka doprava</button>
-      <button data-add="cross" data-port="0">╋ Křižovatka</button>
-      <button data-add="up" data-port="0">⤴ Zatáčka nahoru (vnitřní roh)</button>
-      <button data-add="down" data-port="0">⤵ Zatáčka dolů (přes hranu)</button>
+  <svg class="sprite" aria-hidden="true">
+    <symbol id="i-logo" viewBox="0 0 24 24"><rect x="2" y="2" width="9" height="9"/><rect x="13" y="2" width="9" height="9"/><rect x="2" y="13" width="20" height="9"/></symbol>
+    <symbol id="i-straight" viewBox="0 0 24 24"><path d="M2.5 7.5h19v9h-19z"/><path d="M2.5 10.5h19M2.5 13.5h19" stroke-dasharray="1.5 2"/></symbol>
+    <symbol id="i-corner-left" viewBox="0 0 24 24"><path d="M2.5 16.5h14v-14h-6v8h-8z"/></symbol>
+    <symbol id="i-corner-right" viewBox="0 0 24 24"><path d="M2.5 7.5h14v14h-6v-8h-8z"/></symbol>
+    <symbol id="i-cross" viewBox="0 0 24 24"><path d="M9 2.5h6V9h6.5v6H15v6.5H9V15H2.5V9H9z"/></symbol>
+    <symbol id="i-up" viewBox="0 0 24 24"><path d="M2.5 20.5h17v-18"/><path d="M2.5 15.5h12v-13"/></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24"><path d="M2.5 3.5h17v18"/><path d="M2.5 8.5h12v13"/></symbol>
+    <symbol id="i-lid" viewBox="0 0 24 24"><path d="M2.5 9.5h19v3h-19z"/><path d="M5 12.5v3M19 12.5v3"/></symbol>
+    <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3.5v11M7.5 10l4.5 4.5 4.5-4.5M4 17.5v3h16v-3"/></symbol>
+    <symbol id="i-fit" viewBox="0 0 24 24"><path d="M3.5 9V3.5H9M15 3.5h5.5V9M20.5 15v5.5H15M9 20.5H3.5V15"/></symbol>
+    <symbol id="i-back" viewBox="0 0 24 24"><path d="M10 5.5 3.5 12l6.5 6.5M4 12h16.5"/></symbol>
+  </svg>
+
+  <header class="topbar">
+    <a class="brand" href="./" aria-label="MOD – modulární organizace domácnosti">
+      <svg class="brand-mark"><use href="#i-logo"/></svg>
+      <span class="brand-name">MOD</span>
+      <span class="brand-sub">Modulární organizace domácnosti</span>
+    </a>
+    <span class="topbar-category">Kabely</span>
+    <div class="topbar-end">
+      <p id="status" class="status" role="status">Načítám OpenSCAD…</p>
+      <button id="reset" class="btn btn-on-dark" type="button">Nová sestava</button>
     </div>
-  </main>
+  </header>
 
-  <aside id="sidebar">
-    <h1>Modulární organizace <small>· Kabely</small></h1>
+  <div class="workspace">
+    <main id="viewport" class="scene" aria-label="3D náhled sestavy">
+      <div id="tags" class="tags" aria-hidden="true"></div>
+      <button id="fit" class="scene-fit" type="button" title="Zobrazit celou sestavu" aria-label="Zobrazit celou sestavu">
+        <svg class="ico"><use href="#i-fit"/></svg>
+      </button>
+      <p class="scene-legend">
+        <span><b>Klik</b> vybrat díl</span>
+        <span><b>Šipka</b> připojit další</span>
+        <span><b>Tažení</b> otočit</span>
+        <span><b>Kolečko</b> přiblížit</span>
+      </p>
+      <div id="port-menu" class="port-menu" role="menu" aria-label="Připojit díl" hidden>
+        <p class="port-menu-title">Připojit díl</p>
+        <button role="menuitem" data-add="straight" data-port="0"><svg class="ico"><use href="#i-straight"/></svg>Rovný díl</button>
+        <button role="menuitem" data-add="corner" data-port="0"><svg class="ico"><use href="#i-corner-left"/></svg>Zatáčka doleva</button>
+        <button role="menuitem" data-add="corner" data-port="1"><svg class="ico"><use href="#i-corner-right"/></svg>Zatáčka doprava</button>
+        <button role="menuitem" data-add="cross" data-port="0"><svg class="ico"><use href="#i-cross"/></svg>Křižovatka</button>
+        <button role="menuitem" data-add="up" data-port="0"><svg class="ico"><use href="#i-up"/></svg>Nahoru <small>vnitřní roh</small></button>
+        <button role="menuitem" data-add="down" data-port="0"><svg class="ico"><use href="#i-down"/></svg>Dolů <small>přes hranu</small></button>
+      </div>
+    </main>
 
-    <section id="run-panel" hidden></section>
+    <aside class="pass" aria-label="Nastavení">
+      <div class="pass-tabs" role="tablist">
+        <button role="tab" id="tab-part" data-tab="part" aria-controls="part-panel">Díl<span class="tab-scope"></span></button>
+        <button role="tab" id="tab-run" data-tab="run" aria-controls="run-panel">Trasa<span class="tab-scope"></span></button>
+        <button role="tab" id="tab-assembly" data-tab="assembly" aria-controls="assembly-panel">Sestava<span class="tab-scope"></span></button>
+      </div>
+      <section id="part-panel" class="pass-panel" role="tabpanel" aria-labelledby="tab-part"></section>
+      <section id="run-panel" class="pass-panel" role="tabpanel" aria-labelledby="tab-run" hidden></section>
+      <section id="assembly-panel" class="pass-panel" role="tabpanel" aria-labelledby="tab-assembly" hidden>
+        <div class="scope"><span>Platí pro</span><b id="assembly-scope"></b></div>
+        <div id="global-panel" class="segment"></div>
+      </section>
+    </aside>
 
-    <section id="part-panel"></section>
-
-    <section>
-      <h2>Celá sestava</h2>
-      <p class="note">Platí pro všechny díly, aby do sebe zacvakly.</p>
-      <div id="global-panel"></div>
+    <section class="board" aria-labelledby="board-title">
+      <header class="board-head">
+        <h2 id="board-title">K tisku</h2>
+        <p id="print-summary" class="board-summary"></p>
+        <div class="board-actions">
+          <button id="export-stl" class="btn btn-on-dark" type="button">STL sestavy</button>
+          <button id="export-zip" class="btn btn-primary" type="button"><svg class="ico"><use href="#i-download"/></svg>Stáhnout vše · ZIP</button>
+        </div>
+      </header>
+      <div class="board-scroll">
+        <table class="board-table">
+          <thead>
+            <tr><th>Kód</th><th>Díl</th><th>Rozměr</th><th>Úprava</th><th class="num">Ks</th><th>Stav</th><th><span class="visually-hidden">Stáhnout</span></th></tr>
+          </thead>
+          <tbody id="print-list"></tbody>
+        </table>
+      </div>
     </section>
+  </div>
 
-    <section>
-      <h2>Díly k tisku</h2>
-      <p class="note" id="print-summary"></p>
-      <ul id="print-list"></ul>
-    </section>
-
-    <section class="actions">
-      <button id="export-zip" class="primary">Stáhnout díly k tisku (ZIP)</button>
-      <button id="export-stl">Stáhnout sestavu jako STL</button>
-      <button id="fit">Zobrazit vše</button>
-      <button id="reset">Nová sestava…</button>
-    </section>
-  </aside>
-
-  <div id="start" class="modal" role="dialog" aria-modal="true" aria-label="Nová sestava" hidden>
+  <div id="start" class="modal" role="dialog" aria-modal="true" aria-labelledby="start-title" hidden>
     <div class="modal-body"></div>
   </div>
 </body>
