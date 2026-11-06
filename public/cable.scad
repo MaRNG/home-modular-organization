@@ -1,6 +1,6 @@
 // Modulární kabelový žlab: rovný díl, zatáčka L, křižovatka +, zatáčka
 // nahoru (vnitřní roh, např. ze stolu na stěnu), zatáčka dolů (vnější roh
-// přes hranu stolu), díl S (přesazení do strany) a kryty.
+// přes hranu stolu), díl S (přesazení do strany), koncovka a kryty.
 //
 // Spoj na zacvaknutí: konec s čepy (M) má na bocích pružné jazýčky
 // s kuželovým čepem, které se zasunou dovnitř sousedního dílu; konec
@@ -31,9 +31,9 @@
 
 /* [Co renderovat] */
 what = "body";     // [body, lid, lid_view] – lid = tisková orientace, lid_view = poloha na dílu
-part = "straight"; // [straight, corner, cross, up, down, s]
+part = "straight"; // [straight, corner, cross, up, down, s, end]
 len  = 80;         // délka rovného dílu a dílu S (od portu k portu)
-arm  = 40;         // délka ramene zatáčky/křižovatky od středu k portu; u dílu S přesazení do strany (záporné = doprava)
+arm  = 40;         // délka ramene zatáčky/křižovatky od středu k portu, u koncovky od středu oblouku; u dílu S přesazení do strany (záporné = doprava)
 genders = "FM";    // pohlaví portů v pořadí ramen: F = otvory, M = čepy
 
 /* [Profil] */
@@ -123,7 +123,9 @@ else if (what == "lid_view")
 // Ramena dílu: [rámec pro rotate(), délka od středu k portu].
 // Zatáčka nahoru: svislé rameno jde do +z, otevřená strana míří do -x.
 // Zatáčka dolů: svislé rameno jde do -z, otevřená strana míří do +x.
+// Koncovka: jedno rameno do +x, za počátkem je půlkruhové uzavřené čelo.
 function arms(part, len, arm) =
+  part == "end"      ? [[0, arm]] :
   part == "straight" ? [[180, len / 2], [0, len / 2]] :
   part == "corner"   ? [[180, arm], [90, arm]] :
   part == "up"       ? [[180, arm], [[0, -90, 0], arm]] :
@@ -165,7 +167,7 @@ function body_x0(part, a, W, H, ce) =
 function div_x0(part, a, W, H, ce) = part == "cross" ? W / 2 + 1 : body_x0(part, a, W, H, ce);
 
 // Kde na rameni začíná rovný úsek (za středem dílu nebo za ohybem).
-function seg_start(part, W, f, H) = part == "up" ? H + 4 : part == "down" ? f + 1 : W / 2;
+function seg_start(part, W, f, H) = part == "up" ? H + 4 : part == "down" ? f + 1 : part == "end" ? 0 : W / 2;
 
 // Kolik se na konci ramene nechává bez výřezů a čepů krytu: jazýčky,
 // otvory pro čepy a useknutý roh. Musí odpovídat keepLen() v app.js.
@@ -275,6 +277,14 @@ module corner_round(w, t)
       translate([0, -50]) square([t, 200]);
     }
 
+// Půlkruhové čelo koncovky: pravá polovina průřezu otočená o 180° kolem osy z.
+module end_round(W)
+  rotate(90) rotate_extrude(angle = 180)
+    intersection() {
+      children();
+      translate([0, -50]) square([W, 200]);
+    }
+
 function corner_rounded(part, er, t) = part == "corner" && round_r(er, t) > 0;
 
 module body_shell(part, len, arm, w, h, t, f, c, bc, er, ce, div_n, div_t, div_h, lid) {
@@ -286,6 +296,7 @@ module body_shell(part, len, arm, w, h, t, f, c, bc, er, ce, div_n, div_t, div_h
     if (div_n > 1)
       along(div_x0(part, A[i], W, H, ce), A[i][1]) div_profile(w, h, f, c, er, div_n, div_t, div_h, lid);
   }
+  if (part == "end") end_round(W) u_profile(w, h, t, f, bc, er);
   if (part == "s")
     s_sweep(len, arm, ce) {
       u_profile(w, h, t, f, bc, er);
@@ -402,6 +413,7 @@ function flute_faces(part, len, arm, w, W, H, ce) =
   part == "cross" ? [for (i = [0 : 3]) for (s = [-1, 1]) [i, W / 2, arm, s]] :
   part == "up" ? [for (i = [0 : 1]) for (s = [-1, 1]) [i, H, arm, s]] :
   part == "down" ? [for (i = [0 : 1]) for (s = [-1, 1]) [i, 0, arm, s]] :
+  part == "end" ? [[0, 0, arm, 1], [0, 0, arm, -1]] :
   [for (i = [0 : 1]) for (s = [-1, 1]) [i, len / 2 - s_lead(ce), len / 2, s]];
 
 function flute_xs(x0, x1, p) =
@@ -653,6 +665,10 @@ module cable_lid(part, len = 80, arm = 40, w = 30, t = 2, c = 0.2, lid_bump = 0.
         if (corner_rounded(part, er, t)) corner_cut(w, t);
       }
       if (corner_rounded(part, er, t)) corner_round(w, t) lid_plate2d(W, lid_t, er);
+      if (part == "end") end_round(W) {
+        lid_plate2d(W, lid_t, er);
+        lid_collar2d(w, c);
+      }
       for (sg = segs) rotate(sg[0]) for (s = snaps_on(sg)) lid_snap_bumps(s[1], w, c, lid_bump);
     }
     for (a = A) rotate(a[0]) lid_end_cut(a[1], W, lid_t, ce);

@@ -82,6 +82,15 @@ const TYPES = {
       return [flat(-p.len / 2, -o / 2, 180), flat(p.len / 2, o / 2, 0)];
     },
   },
+  // Koncovka: poslední díl trasy, za ramenem zaoblené uzavřené čelo. Nedá se na ni navázat.
+  end: {
+    label: 'Koncovka',
+    lidLabel: 'koncovka',
+    slug: 'koncovka',
+    icon: 'i-end',
+    sym: 1,
+    ports: (p) => [flat(p.arm, 0, 0)],
+  },
 };
 
 // Přesazení dílu S se znaménkem; v cable.scad jde jako `arm` (záporné = doprava).
@@ -97,6 +106,7 @@ function minArm(part) {
   const p = part.params, g = state.globals;
   if (part.type === 'up') return Math.ceil(g.f + p.h + 4 + keepLen(p) + 2);
   if (part.type === 'down') return Math.ceil(g.f + 1 + keepLen(p) + 2);
+  if (part.type === 'end') return Math.ceil(keepLen(p) + 4);
   return Math.ceil((p.w + 2 * g.t) / 2 + keepLen(p) + 1);
 }
 const minLen = (p) => Math.ceil(2 * keepLen(p) + 8);
@@ -133,7 +143,7 @@ const PART_GROUPS = [
       len: { label: 'Délka', min: lenMin, max: 300, step: 5, only: ['straight', 's'] },
       off: { label: 'Přesazení do strany', min: 5, max: 150, step: 1, only: ['s'] },
       s_right: { label: 'Přesazení doprava', type: 'bool', only: ['s'] },
-      arm: { label: 'Délka ramene (od středu)', min: minArm, max: 200, step: 1, only: ['corner', 'cross', 'up', 'down'] },
+      arm: { label: 'Délka ramene (od středu)', min: minArm, max: 200, step: 1, only: ['corner', 'cross', 'up', 'down', 'end'] },
     },
   },
   {
@@ -352,7 +362,7 @@ function initSize(part, right = false) {
     Object.assign(p, { off: 30, s_right: right });
     p.len = Math.max(140, lenMin(part));
   } else {
-    p.arm = Math.max(40, minArm(part));
+    p.arm = Math.max(part.type === 'end' ? 20 : 40, minArm(part));
   }
 }
 
@@ -1134,6 +1144,7 @@ function select(id) {
 function variant(part) {
   const g = canonical(part).genders;
   if (part.type === 'corner') return g[0] === 'F' ? { label: 'levá', slug: '-leva' } : { label: 'pravá', slug: '-prava' };
+  if (part.type === 'end') return g === 'M' ? { label: 's čepy', slug: '-cepy' } : { label: 's otvory', slug: '-otvory' };
   if (part.type === 'cross') {
     const m = [...g].filter((x) => x === 'M').length;
     return { label: `${m}× čepy, ${4 - m}× otvory`, slug: `-${m}cepy` };
@@ -1370,7 +1381,7 @@ const codeAt = (i) => (i < 26 ? String.fromCharCode(65 + i) : codeAt(Math.floor(
 
 function sizeText(part, lid) {
   const { w, h, len, arm, off } = part.params;
-  const size = part.type === 'straight' ? `×${fmt(len)}`
+  const size = part.type === 'straight' ? `×${fmt(len)}` : part.type === 'end' ? `×${fmt(arm)}`
     : part.type === 's' ? `×${fmt(len)} · posun ${off}` : ` · R${arm}`;
   return lid ? `${w}${size}` : `${w}×${h}${size}`;
 }
