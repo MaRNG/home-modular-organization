@@ -660,6 +660,43 @@ input[type="range"]:focus-visible { outline: 0; }
 input[type="range"]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px var(--paper), 0 0 0 5px var(--rust); }
 input[type="range"]:focus-visible::-moz-range-thumb { box-shadow: 0 0 0 3px var(--paper), 0 0 0 5px var(--rust); }
 
+.segment-head-sub {
+  margin-top: calc(var(--u) * 3);
+  padding-top: calc(var(--u) * 2);
+  border-top: 1px solid var(--line-strong);
+}
+
+.field-label {
+  font: 500 13px/1.2 var(--f-body);
+  color: var(--ink-2);
+}
+
+/* Přepínač možností (tvar výřezu) */
+.seg-choice {
+  display: grid;
+  grid-auto-columns: 1fr;
+  grid-auto-flow: column;
+  margin-top: 6px;
+  border: 1.5px solid var(--ink);
+  border-radius: 2px;
+}
+
+.seg-choice button {
+  padding: 7px 4px;
+  border: 0;
+  border-left: 1.5px solid var(--ink);
+  background: var(--paper-hi);
+  color: var(--ink);
+  font: 600 13px/1 var(--f-label);
+  letter-spacing: 0.02em;
+  cursor: pointer;
+}
+
+.seg-choice button:first-child { border-left: 0; }
+.seg-choice button:hover:not([aria-checked="true"]) { background: var(--paper); }
+.seg-choice button[aria-checked="true"] { background: var(--amber); }
+.seg-choice button:focus-visible { outline: 2px solid var(--rust); outline-offset: -4px; }
+
 .check {
   display: flex;
   align-items: center;

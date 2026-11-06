@@ -110,6 +110,15 @@ function minLenS(p) {
   return Math.ceil(2 * lead + dx + 1);
 }
 
+// Komora musí zůstat aspoň ~8 mm široká.
+const maxChambers = (p) => Math.max(1, Math.min(5, Math.floor(p.w / 8)));
+
+const SLOT_SHAPES = [['rect', 'Obdélník'], ['round', 'Zaoblené'], ['hex', 'Voština']];
+const MOUNTS = [['none', 'Nic'], ['screw', 'Šroubky'], ['tape', 'Páska 3M']];
+const mountText = (p) => (p.mount === 'screw' ? `šroubky ${fmt(p.screw_d)} mm` : p.mount === 'tape' ? 'páska 3M' : '');
+
+const shapeName = (s) => ({ round: 'zaoblené', hex: 'voština' })[s] ?? '';
+
 const lenMin = (part) => (part.type === 's' ? minLenS(part.params) : minLen(part.params));
 const maxNotch = (p) => Math.floor(p.h / 2);
 
@@ -128,6 +137,26 @@ const PART_GROUPS = [
     },
   },
   {
+    title: 'Přepážky',
+    apply: ['div_n', 'div_t', 'div_h'],
+    params: {
+      div_n: { label: 'Počet komor (1 = bez přepážek)', unit: 'ks', min: 1, max: (part) => maxChambers(part.params), step: 1 },
+      div_t: { label: 'Tloušťka přepážky', min: 1, max: 3, step: 0.2 },
+      div_h: { label: 'Výška přepážky nade dnem', min: 4, max: (part) => part.params.h, step: 1 },
+    },
+  },
+  {
+    title: 'Uchycení',
+    apply: ['mount', 'screw_d', 'screw_cs', 'tape_w', 'tape_d'],
+    params: {
+      mount: { label: 'Uchycení ke stolu nebo ke zdi', type: 'choice', options: MOUNTS },
+      screw_d: { label: 'Průměr šroubku', min: 1.5, max: 5, step: 0.5, show: (p) => p.mount === 'screw' },
+      screw_cs: { label: 'Zahloubení pro zápustnou hlavu', type: 'bool', show: (p) => p.mount === 'screw' },
+      tape_w: { label: 'Šířka pásky', min: 5, max: (part) => part.params.w, step: 1, show: (p) => p.mount === 'tape' },
+      tape_d: { label: 'Hloubka kapsy (menší než tloušťka pásky)', min: 0, max: 1.2, step: 0.1, show: (p) => p.mount === 'tape' },
+    },
+  },
+  {
     title: 'Zkosení',
     apply: ['ce'],
     params: {
@@ -135,58 +164,84 @@ const PART_GROUPS = [
     },
   },
   {
+    title: 'Povrch',
+    apply: ['flute', 'flute_p'],
+    params: {
+      flute: { label: 'Svislé drážkování vnějších stěn', type: 'bool' },
+      flute_p: { label: 'Rozteč drážek', min: 2, max: 8, step: 0.5, needs: ['flute'] },
+    },
+  },
+  {
     title: 'Výřezy v bocích',
-    apply: ['slots', 'slot_w', 'slot_bar', 'slot_m', 'slot_a'],
+    apply: ['slots', 'slot_shape', 'slot_w', 'slot_bar', 'slot_m', 'slot_a'],
     params: {
       slots: { label: 'Výřezy v bocích', type: 'bool' },
+      slot_shape: { label: 'Tvar výřezu', type: 'choice', options: SLOT_SHAPES, needs: ['slots'] },
       slot_w: { label: 'Šířka výřezu', min: 2, max: 30, step: 0.5, needs: ['slots'] },
       slot_bar: { label: 'Šířka žebra mezi výřezy', min: 1.5, max: 20, step: 0.5, needs: ['slots'] },
       slot_m: { label: 'Okraj nahoře a dole', min: 1, max: 10, step: 0.5, needs: ['slots'] },
-      slot_a: { label: 'Sklon výřezu', unit: '°', min: -60, max: 60, step: 5, needs: ['slots'] },
+      slot_a: { label: 'Sklon výřezu', unit: '°', min: -60, max: 60, step: 5, needs: ['slots'], show: (p) => p.slot_shape !== 'hex' },
     },
   },
   {
     title: 'Výřezy ve dně',
-    apply: ['floor_slots', 'floor_slot_w', 'floor_slot_bar', 'floor_slot_m', 'floor_slot_a'],
+    apply: ['floor_slots', 'floor_slot_shape', 'floor_slot_w', 'floor_slot_bar', 'floor_slot_m', 'floor_slot_a'],
     params: {
       floor_slots: { label: 'Výřezy ve dně', type: 'bool' },
+      floor_slot_shape: { label: 'Tvar výřezu', type: 'choice', options: SLOT_SHAPES, needs: ['floor_slots'] },
       floor_slot_w: { label: 'Šířka výřezu', min: 2, max: 30, step: 0.5, needs: ['floor_slots'] },
       floor_slot_bar: { label: 'Šířka žebra mezi výřezy', min: 1.5, max: 20, step: 0.5, needs: ['floor_slots'] },
       floor_slot_m: { label: 'Okraj od stěn', min: 1, max: 15, step: 0.5, needs: ['floor_slots'] },
-      floor_slot_a: { label: 'Sklon výřezu', unit: '°', min: -60, max: 60, step: 5, needs: ['floor_slots'] },
+      floor_slot_a: { label: 'Sklon výřezu', unit: '°', min: -60, max: 60, step: 5, needs: ['floor_slots'], show: (p) => p.floor_slot_shape !== 'hex' },
     },
   },
   {
     title: 'Kryt',
-    apply: ['lid', 'lid_slots', 'lid_slot_w', 'lid_slot_bar', 'lid_slot_m', 'lid_slot_a'],
+    apply: ['lid', 'lid_slots', 'lid_slot_shape', 'lid_slot_w', 'lid_slot_bar', 'lid_slot_m', 'lid_slot_a'],
     params: {
       lid: { label: 'Zakrytovat (kryt na zacvaknutí)', type: 'bool' },
       lid_slots: { label: 'Výřezy v krytu', type: 'bool', needs: ['lid'] },
+      lid_slot_shape: { label: 'Tvar výřezu', type: 'choice', options: SLOT_SHAPES, needs: ['lid', 'lid_slots'] },
       lid_slot_w: { label: 'Šířka výřezu', min: 2, max: 30, step: 0.5, needs: ['lid', 'lid_slots'] },
       lid_slot_bar: { label: 'Šířka žebra mezi výřezy', min: 1.5, max: 20, step: 0.5, needs: ['lid', 'lid_slots'] },
       lid_slot_m: { label: 'Okraj od límce', min: 1, max: 10, step: 0.5, needs: ['lid', 'lid_slots'] },
-      lid_slot_a: { label: 'Sklon výřezu', unit: '°', min: -60, max: 60, step: 5, needs: ['lid', 'lid_slots'] },
+      lid_slot_a: { label: 'Sklon výřezu', unit: '°', min: -60, max: 60, step: 5, needs: ['lid', 'lid_slots'], show: (p) => p.lid_slot_shape !== 'hex' },
     },
   },
 ];
 
 const DEFAULT_PARAMS = {
   w: 30, h: 20, ce: 0, off: 30, s_right: false,
-  slots: false, slot_w: 6, slot_bar: 4, slot_m: 2, slot_a: 45,
-  floor_slots: false, floor_slot_w: 4, floor_slot_bar: 6, floor_slot_m: 4, floor_slot_a: 45,
-  lid: false, lid_slots: false, lid_slot_w: 6, lid_slot_bar: 6, lid_slot_m: 2, lid_slot_a: 45,
+  div_n: 1, div_t: 1.6, div_h: 20, flute: false, flute_p: 3,
+  mount: 'none', screw_d: 2, screw_cs: true, tape_w: 12, tape_d: 0.4,
+  slots: false, slot_shape: 'rect', slot_w: 6, slot_bar: 4, slot_m: 2, slot_a: 45,
+  floor_slots: false, floor_slot_shape: 'rect', floor_slot_w: 4, floor_slot_bar: 6, floor_slot_m: 4, floor_slot_a: 45,
+  lid: false, lid_slots: false, lid_slot_shape: 'rect', lid_slot_w: 6, lid_slot_bar: 6, lid_slot_m: 2, lid_slot_a: 45,
 };
 
-const GLOBAL_PARAMS = {
-  t: { label: 'Tloušťka stěny', min: 1.2, max: 4, step: 0.2 },
-  f: { label: 'Tloušťka dna', min: 2, max: 5, step: 0.2 },
-  c: { label: 'Vůle spoje', min: 0, max: 0.5, step: 0.05 },
-  bump: { label: 'Výška čepu spoje', min: 0.4, max: 1.6, step: 0.1 },
-  lid_bump: { label: 'Výška čepu krytu', min: 0.2, max: 1.2, step: 0.1 },
-  lid_t: { label: 'Tloušťka krytu', min: 1.2, max: 4, step: 0.2 },
-};
+const GLOBAL_GROUPS = [
+  {
+    title: 'Profil a spoje',
+    params: {
+      t: { label: 'Tloušťka stěny', min: 1.2, max: 4, step: 0.2 },
+      f: { label: 'Tloušťka dna', min: 2, max: 5, step: 0.2 },
+      c: { label: 'Vůle spoje', min: 0, max: 0.5, step: 0.05 },
+      bump: { label: 'Výška čepu spoje', min: 0.4, max: 1.6, step: 0.1 },
+      lid_bump: { label: 'Výška čepu krytu', min: 0.2, max: 1.2, step: 0.1 },
+      lid_t: { label: 'Tloušťka krytu', min: 1.2, max: 4, step: 0.2 },
+    },
+  },
+  {
+    title: 'Hrany a značení',
+    params: {
+      bc: { label: 'Zkosení spodní hrany (45°)', min: 0, max: 2, step: 0.1 },
+      er: { label: 'Zaoblení horních hran', min: 0, max: 1.5, step: 0.1 },
+      emboss: { label: 'Vyrazit kód dílu (A, B…) zespodu do dna', type: 'bool' },
+    },
+  },
+];
 
-const DEFAULT_GLOBALS = { t: 2, f: 3, c: 0.2, bump: 0.9, lid_bump: 0.6, lid_t: 2 };
+const DEFAULT_GLOBALS = { t: 2, f: 3, c: 0.2, bump: 0.9, lid_bump: 0.6, lid_t: 2, bc: 1, er: 0.8, emboss: false };
 
 const limit = (v, p) => (typeof v === 'function' ? v(p) : v);
 
@@ -368,6 +423,9 @@ function syncRun() {
 function clampSize(part) {
   const p = part.params;
   p.ce = Math.min(p.ce, maxNotch(p));
+  p.div_n = Math.min(p.div_n, maxChambers(p));
+  p.div_h = Math.min(p.div_h, p.h);
+  p.tape_w = Math.min(p.tape_w, p.w);
   if (p.arm !== undefined) p.arm = Math.max(p.arm, minArm(part));
   // Délky dílů rovné trasy hlídá syncRun() přes počet dílů.
   if (p.len !== undefined && !isRunPart(part)) p.len = Math.max(p.len, lenMin(part));
@@ -472,9 +530,14 @@ function bodyDefs(part) {
   const p = part.params, g = state.globals;
   return {
     what: 'body', part: part.type, ...sizeParam(part), w: p.w, h: p.h,
-    t: g.t, f: g.f, c: g.c, bump: g.bump, genders: canonical(part).genders, ce: p.ce,
-    slots: p.slots, ...enabled(p, 'slots', ['slot_w', 'slot_bar', 'slot_m', 'slot_a']),
-    floor_slots: p.floor_slots, ...enabled(p, 'floor_slots', ['floor_slot_w', 'floor_slot_bar', 'floor_slot_m', 'floor_slot_a']),
+    t: g.t, f: g.f, c: g.c, bump: g.bump, genders: canonical(part).genders, ce: p.ce, bc: g.bc, er: g.er,
+    div_n: p.div_n, ...(p.div_n > 1 ? { div_t: p.div_t, div_h: p.div_h } : {}),
+    flute: p.flute, ...enabled(p, 'flute', ['flute_p']),
+    mount: p.mount, ...(p.mount === 'screw' ? { screw_d: p.screw_d, screw_cs: p.screw_cs }
+      : p.mount === 'tape' ? { tape_w: p.tape_w, tape_d: p.tape_d } : {}),
+    slots: p.slots, ...enabled(p, 'slots', ['slot_shape', 'slot_w', 'slot_bar', 'slot_m', 'slot_a']),
+    floor_slots: p.floor_slots,
+    ...enabled(p, 'floor_slots', ['floor_slot_shape', 'floor_slot_w', 'floor_slot_bar', 'floor_slot_m', 'floor_slot_a']),
     lid: p.lid,
   };
 }
@@ -485,8 +548,9 @@ function lidDefs(part) {
   if (!p.lid) return null;
   return {
     what: 'lid', part: part.type, ...sizeParam(part), w: p.w, t: g.t, c: g.c, lid_bump: g.lid_bump, lid_t: g.lid_t,
-    ce: p.ce, ...(isBend(part.type) ? { h: p.h, f: g.f } : {}),
-    lid_slots: p.lid_slots, ...enabled(p, 'lid_slots', ['lid_slot_w', 'lid_slot_bar', 'lid_slot_m', 'lid_slot_a']),
+    ce: p.ce, er: g.er, ...(isBend(part.type) ? { h: p.h, f: g.f } : {}),
+    lid_slots: p.lid_slots,
+    ...enabled(p, 'lid_slots', ['lid_slot_shape', 'lid_slot_w', 'lid_slot_bar', 'lid_slot_m', 'lid_slot_a']),
   };
 }
 
@@ -981,6 +1045,37 @@ function checkbox(def, value, onChange) {
   return row;
 }
 
+// Přepínač několika možností (tvar výřezu).
+function choice(def, value, onChange) {
+  const row = document.createElement('div');
+  row.className = 'field';
+  row.innerHTML = `<div class="field-row"><span class="field-label">${def.label}</span></div>
+    <div class="seg-choice" role="radiogroup" aria-label="${def.label}">${def.options.map(([v, label]) =>
+      `<button type="button" role="radio" aria-checked="${v === value}" tabindex="${v === value ? 0 : -1}" data-value="${v}">${label}</button>`).join('')}</div>`;
+  const buttons = [...row.querySelectorAll('button')];
+  const pick = (b) => {
+    if (b.dataset.value === value) return;
+    value = b.dataset.value;
+    for (const x of buttons) {
+      x.setAttribute('aria-checked', String(x === b));
+      x.tabIndex = x === b ? 0 : -1;
+    }
+    onChange(value);
+  };
+  row.querySelector('.seg-choice').addEventListener('click', (e) => {
+    const b = e.target.closest('button');
+    if (b) pick(b);
+  });
+  row.querySelector('.seg-choice').addEventListener('keydown', (e) => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+    const i = buttons.findIndex((b) => b.dataset.value === value);
+    const next = buttons[(i + (e.key === 'ArrowRight' ? 1 : buttons.length - 1)) % buttons.length];
+    pick(next);
+    next.focus();
+  });
+  return row;
+}
+
 // Záložky lístku: DÍL / TRASA / SESTAVA. Každá vždy říká, na kolik dílů změna dopadne.
 const tabs = [...document.querySelectorAll('.pass-tabs [role="tab"]')];
 let activeTab = 'part';
@@ -1060,26 +1155,36 @@ const sizeLabel = (part) =>
     : part.type === 's' ? `délka ${part.params.len} mm, přesazení ${part.params.off} mm`
       : `rameno ${part.params.arm} mm`;
 
+// Tvar výřezů do popisu, např. „výřezy v bocích (voština)“.
+const slotText = (on, shape, text) => (on ? `${text}${shapeName(shape) ? ` (${shapeName(shape)})` : ''}` : '');
+const chambersText = (p) => (p.div_n > 1 ? `${p.div_n} ${plural(p.div_n, 'komora', 'komory', 'komor')}` : '');
+
 function bodyLabel(part) {
   const v = variant(part).label;
-  return `${TYPES[part.type].label}${v ? ` (${v})` : ''} – ${part.params.w}×${part.params.h}, ${sizeLabel(part)}` +
-    (part.params.ce ? ', zkosení' : '') + (part.params.slots ? ', výřezy v bocích' : '') + (part.params.floor_slots ? ', výřezy ve dně' : '') +
-    (part.params.lid ? ', pro kryt' : '');
+  const p = part.params;
+  return `${TYPES[part.type].label}${v ? ` (${v})` : ''} – ${p.w}×${p.h}, ${sizeLabel(part)}` +
+    [chambersText(p), mountText(p), p.ce && 'zkosení', p.flute && 'drážkování', slotText(p.slots, p.slot_shape, 'výřezy v bocích'),
+      slotText(p.floor_slots, p.floor_slot_shape, 'výřezy ve dně'), p.lid && 'pro kryt']
+      .filter(Boolean).map((x) => `, ${x}`).join('');
 }
 
 const lidVariant = (part) => (part.type === 's' ? variant(part) : { label: '', slug: '' });
 
 const lidLabel = (part) =>
   `Kryt – ${TYPES[part.type].lidLabel}${lidVariant(part).label ? ` (${lidVariant(part).label})` : ''}, šířka ${part.params.w}, ${sizeLabel(part)}` +
-  (part.params.ce ? ', zkosení' : '') + (part.params.lid_slots ? ', s výřezy' : '');
+  (part.params.ce ? ', zkosení' : '') + (part.params.lid_slots ? `, ${slotText(true, part.params.lid_slot_shape, 's výřezy')}` : '');
 
 const sizeSlug = (part) => part.params.len ?? part.params.arm;
-const bodyFile = (part) =>
-  `${TYPES[part.type].slug}${variant(part).slug}_${part.params.w}x${part.params.h}_${sizeSlug(part)}mm` +
-  `${part.params.ce ? '_zkos' : ''}${part.params.slots ? '_bok' : ''}${part.params.floor_slots ? '_dno' : ''}${part.params.lid ? '_kryt' : ''}`;
+const shapeSlug = (shape) => ({ round: '-obl', hex: '-hex' })[shape] ?? '';
+const bodyFile = (part) => {
+  const p = part.params;
+  return `${TYPES[part.type].slug}${variant(part).slug}_${p.w}x${p.h}_${sizeSlug(part)}mm` +
+    `${p.div_n > 1 ? `_${p.div_n}komory` : ''}${p.mount === 'screw' ? `_sroub${p.screw_d}` : p.mount === 'tape' ? '_paska' : ''}${p.ce ? '_zkos' : ''}${p.flute ? '_drazky' : ''}` +
+    `${p.slots ? `_bok${shapeSlug(p.slot_shape)}` : ''}${p.floor_slots ? `_dno${shapeSlug(p.floor_slot_shape)}` : ''}${p.lid ? '_kryt' : ''}`;
+};
 const lidFile = (part) =>
   `kryt-${TYPES[part.type].slug}${lidVariant(part).slug}_${part.params.w}_${sizeSlug(part)}mm` +
-  `${part.params.ce ? '_zkos' : ''}${part.params.lid_slots ? '_vyrezy' : ''}`;
+  `${part.params.ce ? '_zkos' : ''}${part.params.lid_slots ? `_vyrezy${shapeSlug(part.params.lid_slot_shape)}` : ''}`;
 
 function renderPartPanel() {
   const panel = document.getElementById('part-panel');
@@ -1142,6 +1247,7 @@ function renderPartPanel() {
     for (const [name, def] of Object.entries(group.params)) {
       if (def.only && !def.only.includes(part.type)) continue;
       if (def.needs && !def.needs.every((n) => part.params[n])) continue;
+      if (def.show && !def.show(part.params)) continue;
       if (name === 'len' && isRunPart(part)) {
         const note = document.createElement('p');
         note.className = 'segment-note';
@@ -1149,8 +1255,8 @@ function renderPartPanel() {
         section.append(note);
         continue;
       }
-      if (def.type === 'bool') {
-        rows[name] = checkbox(def, part.params[name], (value) => {
+      if (def.type === 'bool' || def.type === 'choice') {
+        rows[name] = (def.type === 'bool' ? checkbox : choice)(def, part.params[name], (value) => {
           setParam(name, value, 0);
           renderPartPanel();
         });
@@ -1215,18 +1321,33 @@ function deleteSelected() {
 
 function renderGlobalPanel() {
   const panel = document.getElementById('global-panel');
-  panel.innerHTML = '<div class="segment-head"><h3>Profil a spoje</h3></div>';
-  for (const [name, def] of Object.entries(GLOBAL_PARAMS)) {
-    panel.append(slider(def, state.globals[name], () => state.globals, (value) => {
-      state.globals[name] = value;
-      for (const p of state.parts) {
-        clampSize(p);
-        refreshGeometry(p, 250);
+  panel.innerHTML = '';
+  const set = (name, value, delay) => {
+    state.globals[name] = value;
+    for (const p of state.parts) {
+      clampSize(p);
+      refreshGeometry(p, delay);
+    }
+    changed();
+    renderPartPanel();
+  };
+  GLOBAL_GROUPS.forEach((group, i) => {
+    const head = document.createElement('div');
+    head.className = `segment-head${i ? ' segment-head-sub' : ''}`;
+    head.innerHTML = `<h3>${group.title}</h3>`;
+    panel.append(head);
+    for (const [name, def] of Object.entries(group.params)) {
+      if (def.type === 'bool') {
+        panel.append(checkbox(def, state.globals[name], (value) => set(name, value, 0)));
+      } else {
+        panel.append(slider(def, state.globals[name], () => state.globals, (value) => set(name, value, 250)));
       }
-      changed();
-      renderPartPanel();
-    }));
-  }
+    }
+  });
+  const note = document.createElement('p');
+  note.className = 'segment-note';
+  note.textContent = 'Kód se vyrazí jen do stažených STL a odpovídá kódu v kusovníku. Náhled ho neukazuje.';
+  panel.append(note);
   panel.append(checkbox({ label: 'Zobrazit kryty v náhledu' }, showLids, (value) => {
     showLids = value;
     syncScene();
@@ -1256,12 +1377,14 @@ function sizeText(part, lid) {
 
 function bodyMods(part) {
   const p = part.params;
-  return [variant(part).label, p.ce && `zkosení ${fmt(p.ce)}`, p.slots && 'výřezy boky', p.floor_slots && 'výřezy dno',
+  return [variant(part).label, chambersText(p), mountText(p), p.ce && `zkosení ${fmt(p.ce)}`, p.flute && 'drážky',
+    slotText(p.slots, p.slot_shape, 'výřezy boky'), slotText(p.floor_slots, p.floor_slot_shape, 'výřezy dno'),
     p.lid && 'pro kryt'].filter(Boolean).join(' · ');
 }
 
 const lidMods = (part) =>
-  [lidVariant(part).label, part.params.ce && 'zkosení', part.params.lid_slots && 'výřezy'].filter(Boolean).join(' · ');
+  [lidVariant(part).label, part.params.ce && 'zkosení', slotText(part.params.lid_slots, part.params.lid_slot_shape, 'výřezy')]
+    .filter(Boolean).join(' · ');
 
 function buildPrintList() {
   const items = new Map();
@@ -1389,6 +1512,11 @@ function renderPrintList() {
   flipNext.clear();
 }
 
+// Geometrie ke stažení: s vyraženým kódem, pokud je zapnutý. Náhled a kontrola
+// podložky používají geometrii bez kódu (kód se mění s pořadím řádků).
+const exportDefs = (item) =>
+  (state.globals.emboss && item.kind === 'body' ? { ...item.defs, label: item.code } : item.defs);
+
 // Po dokončení renderu jen přepíše stav řádků, aby se nepřerušilo překlopení.
 let boardRefresh = 0;
 function refreshBoardStates() {
@@ -1449,7 +1577,7 @@ boardBody.addEventListener('click', async (e) => {
   }
   btn.disabled = true;
   try {
-    const { stl } = await geometryFor(item.defs);
+    const { stl } = await geometryFor(exportDefs(item));
     download(`${item.code}_${item.file}_${item.count}ks.stl`, stl, 'model/stl');
   } catch (err) {
     lastError = err.message;
@@ -1507,7 +1635,7 @@ document.getElementById('export-zip').onclick = async (e) => {
     const files = {};
     const lines = [];
     for (const item of buildPrintList()) {
-      const { stl } = await geometryFor(item.defs);
+      const { stl } = await geometryFor(exportDefs(item));
       const name = `${item.code}_${item.file}_${item.count}ks.stl`;
       files[name] = new Uint8Array(stl);
       const fit = fitOf(item);
