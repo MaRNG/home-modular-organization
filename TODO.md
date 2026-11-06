@@ -5,13 +5,13 @@ Nápady na další rozvoj. Nic z toho zatím není rozpracované.
 ## Priorita (doporučené pořadí)
 
 1. **Šablona „Test spoje“:** 2–3 mini díly (~30 mm) + kryt s různou vůlí (0,15 / 0,2 / 0,3 mm) a výškou čepu. Po vytištění vybrat, co sedí, a nastavit jako výchozí. Spoje jsou zatím ověřené jen geometricky.
-2. **Klip na desku stolu** (viz Nové díly 1). Šroubky, páska 3M a plná koncovka už jsou.
+2. **Klip na desku stolu** (viz Nové díly 1). Šroubky, páska 3M a koncovka s vývodem kabelu už jsou.
 3. **Export na tiskovou desku (3MF)** (viz Aplikace 1). Kontrola tiskové plochy už je hotová.
 
 ## Nové díly
 
 1. **Uchycení pod desku stolu klipem:** klip na desku stolu (tloušťka 18–25 mm). Otvory pro šroubky a kapsa pro pásku 3M už jsou; případně šroubky i uprostřed dlouhých dílů.
-2. **Koncovka s vývodem:** čelo koncovky s otvorem/výřezem pro kabel daného průměru, případně s pružnými jazýčky (plná koncovka už je).
+2. **Průchodka v koncovce:** pružné jazýčky nebo kartáčový výřez, který kabel přidrží (plné čelo, otvor a výřez shora už jsou).
 3. **Boční vývod (odbočka T):** otvor v boku s krytkou pro vyvedení kabelu ze žlabu.
 4. **Redukce:** přechod mezi šířkami/výškami se šikmým přechodem místo schodu.
 5. **Ohyb pod jiným úhlem:** zatáčka 45°; ohyb nahoru/dolů s nastavitelným úhlem.
