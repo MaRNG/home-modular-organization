@@ -22,4 +22,11 @@ cp node_modules/three/examples/jsm/controls/OrbitControls.js \
    node_modules/three/examples/jsm/loaders/STLLoader.js public/vendor/three/addons/
 cp node_modules/fflate/esm/browser.js public/vendor/fflate.js
 
+mkdir -p public/vendor/fonts
+for f in barlow-semi-condensed/files/barlow-semi-condensed-latin{,-ext}-{500,600,700}-normal.woff2 \
+         barlow/files/barlow-latin{,-ext}-{400,500}-normal.woff2 \
+         jetbrains-mono/files/jetbrains-mono-latin{,-ext}-{400,500}-normal.woff2; do
+  cp "node_modules/@fontsource/$f" public/vendor/fonts/
+done
+
 echo "OK: public/vendor/ (OpenSCAD ${OPENSCAD_VERSION})"

@@ -8,6 +8,9 @@
   "author": "",
   "license": "GPL-2.0-or-later",
   "dependencies": {
+    "@fontsource/barlow": "^5.3.0",
+    "@fontsource/barlow-semi-condensed": "^5.3.0",
+    "@fontsource/jetbrains-mono": "^5.3.0",
     "fflate": "^0.8.3",
     "three": "^0.187.0"
   },
