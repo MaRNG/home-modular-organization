@@ -22,15 +22,18 @@ Aplikace je navržená jako nástroj pro modulární organizaci domácnosti. Zat
 - Rozměry, zkosení, výřezy i kryt jdou nastavit **po jednom dílu** (klik na díl), nebo tlačítkem „Použít … na všechny díly“ **najednou**. Nový díl převezme nastavení od dílu, na který se připojuje.
 - **Celá sestava:** tloušťka stěny, dna a krytu, vůle spojů, výška čepu spoje a výška čepu krytu platí pro všechny díly.
 - **Díly k tisku:** seznam unikátních dílů a krytů s počty kusů a tlačítkem **STL** u každého. Díly, které se liší jen otočením (rovný díl o 180°, křižovatka o 90°), jsou jedno STL. Levá a pravá zatáčka jsou různé díly, jejich kryt je společný.
-- **Export:** ZIP se všemi unikátními STL (počet kusů je v názvu), `kusovnik.txt`, `sestava.scad`, `cable.scad` a `sestava.json`. Druhá možnost je jedno STL celé sestavy.
+- **Export:** ZIP se všemi unikátními STL (počet kusů je v názvu), `kusovnik.txt` (s tiskárnou a poznámkou u dílů, které se nevejdou nebo je třeba je natočit), `sestava.scad`, `cable.scad` a `sestava.json` (formát `mod-assembly`, jde importovat zpět). Druhá možnost je jedno STL celé sestavy.
 - **Uzavřené smyčky:** volné konce opačného pohlaví, které na sebe přesně lícují, se spojí automaticky.
-- Sestava se průběžně ukládá do `localStorage`.
+- Rozpracovaná sestava se průběžně ukládá do `localStorage`.
+- **Tiskárna a kontrola podložky:** v hlavičce tabule K tisku je tlačítko s vybranou tiskárnou. V okně Tiskárna vybereš jednu z rozšířených tiskáren (Bambu Lab, Prusa, Creality, Elegoo, Anycubic, Qidi, Sovol, Flashforge, Voron), nebo přidáš vlastní s rozměry X × Y × Z, a nastavíš rezervu od okraje. Každé STL na tabuli má sloupec **Podložka**: *Vejde se*, *Natočit N°* (vejde se jen natočené na podložce) nebo červeně **Nevejde se** s rozměry dílu. Řádek, který se nevejde, je označený červeně a hlavička ukáže jejich počet. Nastavení se ukládá do `localStorage` a jde ho exportovat do JSON a importovat (`mod-nastaveni.json`). Šablona rovné trasy volí výchozí počet dílů tak, aby se vešly na vybranou tiskárnu.
+- **Průvodce:** při prvním vstupu do editoru se spustí krátký průvodce v 9 krocích. Každý krok zvýrazní část rozhraní (scéna, šipka pro připojení dílu, záložky nastavení, tabule K tisku, tiskárna, ZIP, Sestavy) a bublina se šipkou vysvětlí, co dělá. Ovládá se tlačítky Zpět a Další nebo šipkami na klávesnici. Přeskočit nebo Esc ho zavře. Zaškrtnuté „Příště nezobrazovat“ (výchozí) se uloží do `localStorage`. Otazník v horním pruhu průvodce kdykoli spustí znovu.
+- **Sestavy:** tlačítko Sestavy v horním pruhu. Aktuální sestavu uložíš pod názvem do knihovny v `localStorage`, uložené sestavy otevřeš, exportuješ jednotlivě nebo všechny najednou do JSON a smažeš (potvrzení druhým kliknutím). Import JSON přidá sestavy do knihovny, funguje i `sestava.json` ze ZIPu (i ve starém formátu). Před otevřením jiné sestavy upozorní na neuložené změny. Název aktuální sestavy je v horním pruhu, neuložené změny jsou označené „neuloženo“. Úvodní okno nabízí otevření uložené sestavy nebo import.
 
 ### Rozhraní
-- **Horní pruh:** značka MOD, kategorie, stav renderu a tlačítko Nová sestava.
+- **Horní pruh:** značka MOD, kategorie, název sestavy, stav renderu, otazník průvodce a tlačítka Sestavy a Nová sestava.
 - **Scéna:** díly jsou v jedné barvě plastu (jantar `#F2A900`), kryty ve světlé `#F9E6A8`, vybraný díl v rezavé `#CC6F00`. Nad každým dílem je kód jeho STL (A, B, C…).
 - **Lístek vpravo** má záložky **Díl / Trasa / Sestava**. Každá záložka nahoře říká, pro kolik dílů nastavení platí. U skupin parametrů je odkaz „Na všech N“, který je použije na celou sestavu.
-- **Tabule K tisku dole:** kód, díl, rozměr, úpravy, počet kusů, stav a STL ke každému unikátnímu dílu, plus Stáhnout vše (ZIP). Nový nebo změněný řádek se překlopí a svítí jako „Změněno“, dokud na něj nenajedeš. Najetí na řádek zvýrazní odpovídající díly ve scéně, klik na řádek díl vybere.
+- **Tabule K tisku dole:** kód, díl, rozměr, úpravy, podložka, počet kusů, stav a STL ke každému unikátnímu dílu, plus Stáhnout vše (ZIP). Nový nebo změněný řádek se překlopí a svítí jako „Změněno“, dokud na něj nenajedeš. Najetí na řádek zvýrazní odpovídající díly ve scéně, klik na řádek díl vybere.
 - **Písma** jsou servírovaná lokálně z `public/vendor/fonts/` (Barlow Semi Condensed, Barlow, JetBrains Mono), kopíruje je `npm run vendor`.
 
 ### Tisková orientace
@@ -44,6 +47,9 @@ Aplikace je navržená jako nástroj pro modulární organizaci domácnosti. Zat
 |---|---|
 | `public/cable.scad` | geometrie dílů a krytů (moduly `cable_part(...)`, `cable_lid(...)`) |
 | `public/app.js` | stav sestavy (strom), polohy a pohlaví portů, three.js scéna, UI, seznam k tisku, export |
+| `public/core/` | společné funkce všech kategorií MOD: tiskárny a kontrola podložky, knihovna sestav, import/export JSON, okna Tiskárna a Sestavy, průvodce (viz `docs/PLATFORM.md`) |
+| `docs/PLATFORM.md` | popis společných funkcí, klíčů v localStorage a formátů souborů pro další kategorie |
+| `CLAUDE.md` | vstupní bod pro Claude Code, automaticky načítá README, PLATFORM a TODO |
 | `public/worker.js` | Web Worker: jeden render = nová instance OpenSCAD WASM, zkompilovaný modul se kešuje |
 | `scripts/vendor.sh` | stáhne OpenSCAD WASM (ověří SHA-256) a zkopíruje three.js + fflate do `public/vendor/` |
 

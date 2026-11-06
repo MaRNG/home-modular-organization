@@ -6,7 +6,7 @@ Nápady na další rozvoj. Nic z toho zatím není rozpracované.
 
 1. **Šablona „Test spoje“:** 2–3 mini díly (~30 mm) + kryt s různou vůlí (0,15 / 0,2 / 0,3 mm) a výškou čepu. Po vytištění vybrat, co sedí, a nastavit jako výchozí. Spoje jsou zatím ověřené jen geometricky.
 2. **Uchycení a koncovka.** Bez nich se trasa nedá reálně namontovat (viz Nové díly 1 a 2).
-3. **Kontrola tiskové plochy + export na desku (3MF)** (viz Aplikace 1 a 2).
+3. **Export na tiskovou desku (3MF)** (viz Aplikace 1). Kontrola tiskové plochy už je hotová.
 
 ## Nové díly
 
@@ -21,11 +21,11 @@ Nápady na další rozvoj. Nic z toho zatím není rozpracované.
 
 ## Aplikace
 
-1. **Kontrola tiskové plochy:** zadaný rozměr podložky (např. 256×256), označení dílů, které se nevejdou; u rovné trasy omezí max. délku dílu; volitelně natočení na diagonálu.
-2. **Export na tiskovou desku (3MF):** díly v počtu kusů rozmístěné na podložce, připravené pro slicer.
-3. **Odhad materiálu a času:** gramy filamentu, cena a orientační čas tisku z objemu dílů; nový sloupec na tabuli K tisku.
-4. **Kapacita žlabu:** zadané kabely (počet × průměr) → doporučený vnitřní rozměr (max. ~60 % zaplnění).
-5. **Undo/redo** (Ctrl+Z).
-6. **Měřítko a kóty ve scéně:** celková délka a rozměry sestavy ve 3D, volitelně mřížka v mm.
-7. **Více sestav a sdílení:** pojmenované sestavy („Pracovní stůl“, „TV stěna“), export/import JSON, odkaz se sestavou v URL.
-8. **Přesun/otočení sestavy a změna kořene:** dnes nejde smazat první díl ani napojit díl „před“ něj, pokud tam není volný port.
+1. **Export na tiskovou desku (3MF):** díly v počtu kusů rozmístěné na podložce, připravené pro slicer.
+2. **Odhad materiálu a času:** gramy filamentu, cena a orientační čas tisku z objemu dílů; nový sloupec na tabuli K tisku.
+3. **Kapacita žlabu:** zadané kabely (počet × průměr) → doporučený vnitřní rozměr (max. ~60 % zaplnění).
+4. **Undo/redo** (Ctrl+Z).
+5. **Měřítko a kóty ve scéně:** celková délka a rozměry sestavy ve 3D, volitelně mřížka v mm.
+6. **Sdílení odkazem:** sestava zakódovaná v URL (pojmenované sestavy a export/import JSON už jsou hotové).
+7. **Přesun/otočení sestavy a změna kořene:** dnes nejde smazat první díl ani napojit díl „před“ něj, pokud tam není volný port.
+8. **Rozdělení dlouhého dílu:** když se díl nevejde na podložku, nabídnout jeho rozdělení na dva (u rovné trasy navýšit počet dílů).
