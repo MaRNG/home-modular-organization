@@ -30,6 +30,8 @@
     <symbol id="i-lid" viewBox="0 0 24 24"><path d="M2.5 9.5h19v3h-19z"/><path d="M5 12.5v3M19 12.5v3"/></symbol>
     <symbol id="i-download" viewBox="0 0 24 24"><path d="M12 3.5v11M7.5 10l4.5 4.5 4.5-4.5M4 17.5v3h16v-3"/></symbol>
     <symbol id="i-fit" viewBox="0 0 24 24"><path d="M3.5 9V3.5H9M15 3.5h5.5V9M20.5 15v5.5H15M9 20.5H3.5V15"/></symbol>
+    <symbol id="i-printer" viewBox="0 0 24 24"><path d="M3.5 3.5h17v17h-17zM3.5 7.5h17"/><path d="M10 7.5v4h4v-4M12 11.5v2"/><path d="M6.5 17.5h11"/></symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24"><path d="M2.5 5.5h7l2 2.5h10v11.5h-19z"/><path d="M2.5 10.5h19"/></symbol>
     <symbol id="i-back" viewBox="0 0 24 24"><path d="M10 5.5 3.5 12l6.5 6.5M4 12h16.5"/></symbol>
   </svg>
 
@@ -40,8 +42,10 @@
       <span class="brand-sub">Modulární organizace domácnosti</span>
     </a>
     <span class="topbar-category">Kabely</span>
+    <span id="assembly-name" class="topbar-name"></span>
     <div class="topbar-end">
       <p id="status" class="status" role="status">Načítám OpenSCAD…</p>
+      <button id="library" class="btn btn-on-dark" type="button"><svg class="ico"><use href="#i-folder"/></svg>Sestavy</button>
       <button id="reset" class="btn btn-on-dark" type="button">Nová sestava</button>
     </div>
   </header>
@@ -89,7 +93,10 @@
       <header class="board-head">
         <h2 id="board-title">K tisku</h2>
         <p id="print-summary" class="board-summary"></p>
+        <p id="fit-summary" class="fit-summary" hidden></p>
         <div class="board-actions">
+          <button id="printer" class="btn btn-on-dark btn-printer" type="button" title="Tiskárna a tisková podložka">
+            <svg class="ico"><use href="#i-printer"/></svg><span id="printer-name"></span></button>
           <button id="export-stl" class="btn btn-on-dark" type="button">STL sestavy</button>
           <button id="export-zip" class="btn btn-primary" type="button"><svg class="ico"><use href="#i-download"/></svg>Stáhnout vše · ZIP</button>
         </div>
@@ -97,7 +104,7 @@
       <div class="board-scroll">
         <table class="board-table">
           <thead>
-            <tr><th>Kód</th><th>Díl</th><th>Rozměr</th><th>Úprava</th><th class="num">Ks</th><th>Stav</th><th><span class="visually-hidden">Stáhnout</span></th></tr>
+            <tr><th>Kód</th><th>Díl</th><th>Rozměr</th><th>Úprava</th><th>Podložka</th><th class="num">Ks</th><th>Stav</th><th><span class="visually-hidden">Stáhnout</span></th></tr>
           </thead>
           <tbody id="print-list"></tbody>
         </table>
@@ -106,6 +113,10 @@
   </div>
 
   <div id="start" class="modal" role="dialog" aria-modal="true" aria-labelledby="start-title" hidden>
+    <div class="modal-body"></div>
+  </div>
+
+  <div id="dialog" class="modal modal-top" role="dialog" aria-modal="true" aria-labelledby="dialog-title" hidden>
     <div class="modal-body"></div>
   </div>
 </body>

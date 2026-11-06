@@ -2,6 +2,14 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/OrbitControls.js';
 import { STLLoader } from 'three/addons/STLLoader.js';
 import { zipSync, strToU8 } from './vendor/fflate.js';
+import { download, esc, fileSlug } from './core/storage.js';
+import { loadSettings, currentPrinter, printerName, footprint, checkFit } from './core/printers.js';
+import { listAssemblies, assemblyFile } from './core/library.js';
+import { openPrinterDialog, openLibraryDialog } from './core/dialogs.js';
+
+// Kategorie MOD, kterou tato aplikace obsluhuje (klíč v knihovně sestav a v souborech).
+const CATEGORY = 'cables';
+const CATEGORY_LABEL = 'Kabely';
 
 // ---------------------------------------------------------------------------
 // Komponenty
@@ -190,7 +198,7 @@ let selectedId = null;
 let showLids = true;
 
 function emptyState() {
-  return { category: 'cables', globals: { ...DEFAULT_GLOBALS }, nextId: 1, parts: [], run: null };
+  return { category: CATEGORY, globals: { ...DEFAULT_GLOBALS }, nextId: 1, parts: [], run: null, saved: null };
 }
 
 // Nová sestava začínající jedním dílem.
@@ -209,18 +217,31 @@ function runState(totalCm, count) {
   return s;
 }
 
+// Doplní chybějící hodnoty a ověří strukturu stavu (z localStorage, knihovny nebo souboru).
+function normalizeState(raw) {
+  if (!Array.isArray(raw?.parts) || !raw.parts.length) return null;
+  const s = structuredClone(raw);
+  s.category = CATEGORY;
+  s.globals = { ...DEFAULT_GLOBALS, ...s.globals };
+  s.run ??= null;
+  if (s.run) s.run.linked ??= true;
+  s.saved ??= null;
+  const ids = new Set();
+  for (const p of s.parts) {
+    if (!TYPES[p.type] || !Number.isInteger(p.id) || !p.params) throw new Error('Neplatný díl v sestavě.');
+    ids.add(p.id);
+    const { ch, cj, ...params } = p.params; // zrušené zkosení hran z dřívější verze
+    p.params = { ...DEFAULT_PARAMS, ...params };
+    p.parent ??= null;
+  }
+  for (const p of s.parts) if (p.parent !== null && !ids.has(p.parent)) throw new Error('Sestava odkazuje na chybějící díl.');
+  s.nextId = Math.max(s.nextId || 0, ...ids) + 1;
+  return s;
+}
+
 function loadState() {
   try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    if (!saved?.parts?.length) return null;
-    saved.globals = { ...DEFAULT_GLOBALS, ...saved.globals };
-    saved.run ??= null;
-    if (saved.run) saved.run.linked ??= true;
-    for (const p of saved.parts) {
-      const { ch, cj, ...params } = p.params; // zrušené zkosení hran z dřívější verze
-      p.params = { ...DEFAULT_PARAMS, ...params };
-    }
-    return saved;
+    return normalizeState(JSON.parse(localStorage.getItem(STORAGE_KEY)));
   } catch {
     return null;
   }
@@ -231,6 +252,28 @@ const serialize = (space) =>
 
 function saveState() {
   localStorage.setItem(STORAGE_KEY, serialize());
+}
+
+// Data sestavy pro knihovnu a soubory: bez odkazu na uloženou položku.
+function assemblyData() {
+  if (!state.parts.length) return null;
+  const { saved, ...data } = JSON.parse(serialize());
+  return data;
+}
+
+// Liší se aktuální sestava od své uložené verze v knihovně? Porovnává se se
+// snímkem pořízeným při uložení nebo otevření (state.saved.base).
+function isDirty() {
+  const data = assemblyData();
+  if (!data) return false;
+  return !state.saved || JSON.stringify(data) !== state.saved.base;
+}
+
+function markSaved(item) {
+  state.saved = item && { id: item.id, name: item.name, base: null };
+  if (state.saved) state.saved.base = JSON.stringify(assemblyData());
+  saveState();
+  renderAssemblyName();
 }
 
 const partById = (id) => state.parts.find((p) => p.id === id);
@@ -504,14 +547,17 @@ function runOpenSCAD(defs) {
 const loader = new STLLoader();
 const cache = new Map(); // klíč → Promise<{ stl, geometry }>
 const ready = new Set(); // klíče s hotovým renderem
+const footprints = new Map(); // klíč → půdorys a výška pro kontrolu tiskové plochy
 
 function geometryFor(defs) {
   const k = defsKey(defs);
   if (!cache.has(k)) {
     cache.set(k, runOpenSCAD(defs).then((stl) => {
+      const geometry = loader.parse(stl);
+      footprints.set(k, footprint(geometry.getAttribute('position').array));
       ready.add(k);
       refreshBoardStates();
-      return { stl, geometry: loader.parse(stl) };
+      return { stl, geometry };
     }));
     cache.get(k).catch(() => cache.delete(k));
   }
@@ -1179,6 +1225,49 @@ function buildPrintList() {
   return [...items.values()].map((item, i) => ({ ...item, code: codeAt(i) }));
 }
 
+// ---------------------------------------------------------------------------
+// Tiskárna: kontrola, jestli se STL vejde na podložku.
+
+let settings = loadSettings();
+
+function fitOf(item) {
+  const fp = footprints.get(item.key);
+  return fp ? checkFit(fp, currentPrinter(settings), settings.margin) : null;
+}
+
+function fitCell(item) {
+  const fit = fitOf(item);
+  if (!fit) return '<span class="fit pending">—</span>';
+  const dims = fit.size.map((v) => Math.ceil(v)).join('×');
+  if (fit.status === 'fit') return `<span class="fit ok">Vejde se</span><small class="fit-dims">${dims}</small>`;
+  if (fit.status === 'diagonal') {
+    return `<span class="fit diagonal" title="Vejde se jen natočený o ${fit.angle}° na podložce">Natočit ${fit.angle}°</span><small class="fit-dims">${dims}</small>`;
+  }
+  const why = fit.reason === 'height' ? 'vysoký' : 'velký';
+  return `<span class="fit none" title="Díl ${dims} mm je na podložku příliš ${why}">Nevejde se</span><small class="fit-dims">${dims}</small>`;
+}
+
+function fitSummary() {
+  const bad = printList.filter((item) => fitOf(item)?.status === 'none').length;
+  const el = document.getElementById('fit-summary');
+  el.hidden = !bad;
+  el.textContent = bad ? `${bad} STL se ${plural(bad, 'nevejde', 'nevejdou', 'nevejde')} na podložku` : '';
+}
+
+function renderPrinterButton() {
+  const p = currentPrinter(settings);
+  document.getElementById('printer-name').textContent = `${printerName(p)} · ${p.x}×${p.y}×${p.z}`;
+}
+
+document.getElementById('printer').onclick = () => openPrinterDialog({
+  settings,
+  onChange: (next) => {
+    settings = next;
+    renderPrinterButton();
+    renderPrintList();
+  },
+});
+
 function rowState(item) {
   if (!ready.has(item.key)) return { cls: 'busy', text: 'Renderuji' };
   if (unseen.has(item.key)) return { cls: 'changed', text: 'Změněno' };
@@ -1210,19 +1299,22 @@ function renderPrintList() {
   const total = printList.reduce((sum, item) => sum + item.count, 0);
   document.getElementById('print-summary').textContent =
     total ? `${total} ks · ${printList.length} STL` : '';
+  fitSummary();
   const body = document.getElementById('print-list');
   if (!printList.length) {
-    body.innerHTML = '<tr class="board-empty"><td colspan="7">Sestava je prázdná. Začni tlačítkem Nová sestava.</td></tr>';
+    body.innerHTML = '<tr class="board-empty"><td colspan="8">Sestava je prázdná. Začni tlačítkem Nová sestava.</td></tr>';
     return;
   }
   body.innerHTML = printList.map((item, i) => {
     const st = rowState(item);
-    const cls = [unseen.has(item.key) && 'changed', flipNext.has(item.key) && 'flip'].filter(Boolean).join(' ');
+    const cls = [unseen.has(item.key) && 'changed', flipNext.has(item.key) && 'flip',
+      fitOf(item)?.status === 'none' && 'nofit'].filter(Boolean).join(' ');
     return `<tr data-item="${i}" class="${cls}">
       <td><span class="board-code">${item.code}</span></td>
       <td><span class="board-name"><svg class="ico"><use href="#${item.icon}"/></svg>${item.name}</span></td>
       <td><span>${item.size}</span></td>
       <td><span class="board-mod">${item.mods || '—'}</span></td>
+      <td><span class="board-fit">${fitCell(item)}</span></td>
       <td class="num"><span class="board-count">${item.count}</span></td>
       <td><span class="state ${st.cls}">${st.text}</span></td>
       <td><button class="board-dl" type="button" data-item="${i}" ${ready.has(item.key) ? '' : 'disabled'}
@@ -1245,7 +1337,10 @@ function refreshBoardStates() {
       badge.className = `state ${st.cls}`;
       badge.textContent = st.text;
       row.querySelector('.board-dl').disabled = !ready.has(item.key);
+      row.querySelector('.board-fit').innerHTML = fitCell(item);
+      row.classList.toggle('nofit', fitOf(item)?.status === 'none');
     }
+    fitSummary();
     updateStub();
   });
 }
@@ -1308,6 +1403,7 @@ function changed() {
   renderTabs();
   updateStub();
   saveState();
+  renderAssemblyName();
   updateStatus();
   const empty = !state.parts.length;
   for (const id of ['export-zip', 'export-stl', 'fit']) document.getElementById(id).disabled = empty;
@@ -1315,13 +1411,6 @@ function changed() {
 
 // ---------------------------------------------------------------------------
 // Export
-
-function download(name, data, type) {
-  const url = URL.createObjectURL(new Blob([data], { type }));
-  const a = Object.assign(document.createElement('a'), { href: url, download: name });
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
 
 // Argumenty modulu ze stejných parametrů, jaké jdou do rendrování dílů.
 function scadArgs(defs) {
@@ -1354,13 +1443,19 @@ document.getElementById('export-zip').onclick = async (e) => {
       const { stl } = await geometryFor(item.defs);
       const name = `${item.code}_${item.file}_${item.count}ks.stl`;
       files[name] = new Uint8Array(stl);
-      lines.push(`${item.code}  ${item.count}× ${item.label}  →  ${name}`);
+      const fit = fitOf(item);
+      const note = fit?.status === 'none' ? '  [NEVEJDE SE NA PODLOŽKU]' : fit?.status === 'diagonal' ? `  [natočit o ${fit.angle}°]` : '';
+      lines.push(`${item.code}  ${item.count}× ${item.label}  →  ${name}${note}`);
     }
-    files['kusovnik.txt'] = strToU8(`Díly k tisku\n\n${lines.join('\n')}\n`);
+    const p = currentPrinter(settings);
+    files['kusovnik.txt'] = strToU8(`Díly k tisku${state.saved ? ` – ${state.saved.name}` : ''}\n` +
+      `Tiskárna: ${printerName(p)} (${p.x}×${p.y}×${p.z} mm${settings.margin ? `, rezerva ${settings.margin} mm` : ''})\n\n${lines.join('\n')}\n`);
     files['sestava.scad'] = strToU8(assemblyScad());
     files['cable.scad'] = strToU8(await (await fetch('cable.scad')).text());
-    files['sestava.json'] = strToU8(serialize(2));
-    download('kabelovy-zlab.zip', zipSync(files, { level: 6 }), 'application/zip');
+    files['sestava.json'] = strToU8(JSON.stringify(assemblyFile({
+      name: state.saved?.name ?? 'Kabelový žlab', category: CATEGORY, savedAt: new Date().toISOString(), data: assemblyData(),
+    }), null, 2));
+    download(`${state.saved ? fileSlug(state.saved.name) : 'kabelovy-zlab'}.zip`, zipSync(files, { level: 6 }), 'application/zip');
   } catch (err) {
     lastError = err.message;
     updateStatus();
@@ -1400,6 +1495,41 @@ document.getElementById('export-stl').onclick = async () => {
 document.getElementById('fit').onclick = fitView;
 
 document.getElementById('reset').onclick = () => openStart();
+
+// ---------------------------------------------------------------------------
+// Knihovna sestav (sdílené okno z core/dialogs.js)
+
+function renderAssemblyName() {
+  const el = document.getElementById('assembly-name');
+  const dirty = isDirty();
+  el.textContent = state.saved ? state.saved.name : state.parts.length ? 'Neuložená sestava' : '';
+  el.classList.toggle('unsaved', !!state.saved && dirty);
+  el.title = state.saved && dirty ? 'Neuložené změny' : '';
+}
+
+const legacyAssembly = (json) =>
+  (Array.isArray(json?.parts) ? { name: 'Importovaná sestava', category: CATEGORY, data: json } : null);
+
+function openAssemblyLibrary() {
+  openLibraryDialog({
+    category: CATEGORY,
+    categoryLabel: CATEGORY_LABEL,
+    snapshot: assemblyData,
+    current: () => state.saved,
+    isDirty,
+    describe: (data) => partsWord(data.parts?.length ?? 0) + (data.run ? ` · trasa ${fmt(data.run.totalCm)} cm` : ''),
+    onSaved: markSaved,
+    onOpen: (item) => {
+      const s = normalizeState(item.data);
+      if (!s) throw new Error('Sestava je prázdná.');
+      startWith(s);
+      markSaved(item);
+    },
+    legacy: legacyAssembly,
+  });
+}
+
+document.getElementById('library').onclick = openAssemblyLibrary;
 
 function startWith(newState) {
   state = newState;
@@ -1481,9 +1611,15 @@ function openStart(step = 'category') {
   startModal.hidden = false;
   const body = startModal.querySelector('.modal-body');
   if (step === 'category') {
+    const stored = listAssemblies(CATEGORY).length;
     const resume = state.parts.length
-      ? `<div class="modal-resume"><p>Rozpracovaná sestava: ${partsWord(state.parts.length)}</p>
+      ? `<div class="modal-resume"><p>Rozpracovaná sestava: ${state.saved ? `${esc(state.saved.name)}, ` : ''}${partsWord(state.parts.length)}</p>
          <button class="btn" type="button" data-resume>Pokračovat</button></div>` : '';
+    const library = stored
+      ? `<div class="modal-resume"><p>V prohlížeči ${plural(stored, 'je uložená', 'jsou uložené', 'je uloženo')} ${stored} ${plural(stored, 'sestava', 'sestavy', 'sestav')}</p>
+         <button class="btn" type="button" data-library>Otevřít uloženou</button></div>`
+      : `<div class="modal-resume"><p>Máš sestavu v souboru JSON?</p>
+         <button class="btn" type="button" data-library>Importovat sestavu</button></div>`;
     body.innerHTML = `<div class="modal-head"><svg class="brand-mark"><use href="#i-logo"/></svg>
         <h2 id="start-title">Nová sestava</h2><span class="modal-step">1 / 2</span></div>
       <div class="modal-section"><h3>Co chceš organizovat</h3>
@@ -1495,10 +1631,11 @@ function openStart(step = 'category') {
             <span class="choice-title">Další moduly</span>
             <span class="choice-text">Šuplíky, nářadí, police.</span>
             <span class="choice-badge">Již brzy</span></div>
-        </div>${resume}
+        </div>${resume}${library}
       </div>`;
     body.querySelector('[data-category]').onclick = () => openStart('cables');
     body.querySelector('[data-resume]')?.addEventListener('click', closeStart);
+    body.querySelector('[data-library]').addEventListener('click', openAssemblyLibrary);
     body.querySelector('[data-category]').focus();
     return;
   }
@@ -1539,8 +1676,10 @@ function openStart(step = 'category') {
     }
     const range = runCountRange(cm, DEFAULT_PARAMS);
     Object.assign(count, { min: range.min, max: range.max });
-    // Výchozí počet: díly do 20 cm, aby se vešly na běžnou tiskovou plochu.
-    if (!countTouched) count.value = Math.min(range.max, Math.max(range.min, Math.ceil((cm * 10) / 200)));
+    // Výchozí počet: díly do 20 cm, a jen tak dlouhé, aby se i s jazýčky vešly na vybranou tiskárnu.
+    const bed = currentPrinter(settings);
+    const maxLen = Math.min(200, Math.max(bed.x, bed.y) - 2 * settings.margin - TAB_LEN - 5);
+    if (!countTouched) count.value = Math.min(range.max, Math.max(range.min, Math.ceil((cm * 10) / maxLen)));
     count.value = Math.min(range.max, Math.max(range.min, Number(count.value) || range.min));
     result.textContent = `${fmt(runPartLen({ totalCm: cm, count: Number(count.value) }))} mm`;
     rangeNote.textContent = `${range.min}–${range.max} dílů`;
@@ -1566,6 +1705,7 @@ startModal.addEventListener('keydown', (e) => {
 // ---------------------------------------------------------------------------
 
 layout();
+renderPrinterButton();
 renderGlobalPanel();
 renderPartPanel();
 changed();
