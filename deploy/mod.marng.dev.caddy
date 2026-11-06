@@ -1,0 +1,27 @@
+# MOD – modulární organizace domácnosti (statický web, OpenSCAD WASM v prohlížeči).
+# Spravováno z repozitáře: deploy/mod.marng.dev.caddy. Instaluje `deploy/deploy.sh setup`, ručně needitovat na serveru.
+mod.marng.dev {
+	root * /www/mod.marng.dev/current/www
+	encode gzip zstd
+
+	# Knihovny (OpenSCAD WASM, three.js, písma) se mění jen s novou verzí závislostí;
+	# vlastní soubory aplikace se musí vždy revalidovat, jinak by se neprojevila nová verze.
+	@vendor path /vendor/*
+	header @vendor Cache-Control "public, max-age=604800"
+	@revalidate not path /vendor/*
+	header @revalidate Cache-Control "no-cache"
+
+	header {
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		-Server
+	}
+
+	file_server
+
+	log {
+		output file /var/log/caddy/mod.marng.dev.log
+	}
+}
