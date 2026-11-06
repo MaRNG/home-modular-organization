@@ -127,6 +127,14 @@ const SLOT_SHAPES = [['rect', 'Obdélník'], ['round', 'Zaoblené'], ['hex', 'Vo
 const MOUNTS = [['none', 'Nic'], ['screw', 'Šroubky'], ['tape', 'Páska 3M']];
 const mountText = (p) => (p.mount === 'screw' ? `šroubky ${fmt(p.screw_d)} mm` : p.mount === 'tape' ? 'páska 3M' : '');
 
+// Vývod kabelu v čele koncovky; otvor má +1 mm a musí se vejít do kanálu.
+const OUTLETS = [['none', 'Plné čelo'], ['hole', 'Otvor'], ['slot', 'Výřez shora']];
+const maxCable = (p) => Math.max(3, Math.min(p.w - 3, p.h - 2));
+const hasOutlet = (part) => part.type === 'end' && part.params.outlet !== 'none';
+const outletText = (part) =>
+  (hasOutlet(part) ? `${part.params.outlet === 'hole' ? 'otvor' : 'výřez'} Ø${fmt(part.params.cable_d)}` : '');
+const outletSlug = (part) => (hasOutlet(part) ? `_${part.params.outlet === 'hole' ? 'otvor' : 'vyrez'}${part.params.cable_d}` : '');
+
 const shapeName = (s) => ({ round: 'zaoblené', hex: 'voština' })[s] ?? '';
 
 const lenMin = (part) => (part.type === 's' ? minLenS(part.params) : minLen(part.params));
@@ -144,6 +152,16 @@ const PART_GROUPS = [
       off: { label: 'Přesazení do strany', min: 5, max: 150, step: 1, only: ['s'] },
       s_right: { label: 'Přesazení doprava', type: 'bool', only: ['s'] },
       arm: { label: 'Délka ramene (od středu)', min: minArm, max: 200, step: 1, only: ['corner', 'cross', 'up', 'down', 'end'] },
+    },
+  },
+  {
+    title: 'Vývod kabelu',
+    only: ['end'],
+    apply: ['outlet', 'cable_d'],
+    params: {
+      outlet: { label: 'Čelo koncovky', type: 'choice', options: OUTLETS },
+      cable_d: { label: 'Průměr kabelu', min: 3, max: (part) => maxCable(part.params), step: 0.5,
+        show: (p) => p.outlet !== 'none' },
     },
   },
   {
@@ -223,6 +241,7 @@ const PART_GROUPS = [
 const DEFAULT_PARAMS = {
   w: 30, h: 20, ce: 0, off: 30, s_right: false,
   div_n: 1, div_t: 1.6, div_h: 20, flute: false, flute_p: 3,
+  outlet: 'none', cable_d: 8,
   mount: 'none', screw_d: 2, screw_cs: true, tape_w: 12, tape_d: 0.4,
   slots: false, slot_shape: 'rect', slot_w: 6, slot_bar: 4, slot_m: 2, slot_a: 45,
   floor_slots: false, floor_slot_shape: 'rect', floor_slot_w: 4, floor_slot_bar: 6, floor_slot_m: 4, floor_slot_a: 45,
@@ -436,6 +455,7 @@ function clampSize(part) {
   p.div_n = Math.min(p.div_n, maxChambers(p));
   p.div_h = Math.min(p.div_h, p.h);
   p.tape_w = Math.min(p.tape_w, p.w);
+  p.cable_d = Math.min(p.cable_d, maxCable(p));
   if (p.arm !== undefined) p.arm = Math.max(p.arm, minArm(part));
   // Délky dílů rovné trasy hlídá syncRun() přes počet dílů.
   if (p.len !== undefined && !isRunPart(part)) p.len = Math.max(p.len, lenMin(part));
@@ -543,6 +563,7 @@ function bodyDefs(part) {
     t: g.t, f: g.f, c: g.c, bump: g.bump, genders: canonical(part).genders, ce: p.ce, bc: g.bc, er: g.er,
     div_n: p.div_n, ...(p.div_n > 1 ? { div_t: p.div_t, div_h: p.div_h } : {}),
     flute: p.flute, ...enabled(p, 'flute', ['flute_p']),
+    ...(hasOutlet(part) ? { outlet: p.outlet, cable_d: p.cable_d } : {}),
     mount: p.mount, ...(p.mount === 'screw' ? { screw_d: p.screw_d, screw_cs: p.screw_cs }
       : p.mount === 'tape' ? { tape_w: p.tape_w, tape_d: p.tape_d } : {}),
     slots: p.slots, ...enabled(p, 'slots', ['slot_shape', 'slot_w', 'slot_bar', 'slot_m', 'slot_a']),
@@ -559,6 +580,7 @@ function lidDefs(part) {
   return {
     what: 'lid', part: part.type, ...sizeParam(part), w: p.w, t: g.t, c: g.c, lid_bump: g.lid_bump, lid_t: g.lid_t,
     ce: p.ce, er: g.er, ...(isBend(part.type) ? { h: p.h, f: g.f } : {}),
+    ...(hasOutlet(part) ? { outlet: p.outlet, cable_d: p.cable_d, h: p.h } : {}),
     lid_slots: p.lid_slots,
     ...enabled(p, 'lid_slots', ['lid_slot_shape', 'lid_slot_w', 'lid_slot_bar', 'lid_slot_m', 'lid_slot_a']),
   };
@@ -1144,7 +1166,7 @@ function select(id) {
 function variant(part) {
   const g = canonical(part).genders;
   if (part.type === 'corner') return g[0] === 'F' ? { label: 'levá', slug: '-leva' } : { label: 'pravá', slug: '-prava' };
-  if (part.type === 'end') return g === 'M' ? { label: 's čepy', slug: '-cepy' } : { label: 's otvory', slug: '-otvory' };
+  if (part.type === 'end') return g === 'M' ? { label: 'spoj s čepy', slug: '-cepy' } : { label: 'spoj s otvory', slug: '-otvory' };
   if (part.type === 'cross') {
     const m = [...g].filter((x) => x === 'M').length;
     return { label: `${m}× čepy, ${4 - m}× otvory`, slug: `-${m}cepy` };
@@ -1174,7 +1196,7 @@ function bodyLabel(part) {
   const v = variant(part).label;
   const p = part.params;
   return `${TYPES[part.type].label}${v ? ` (${v})` : ''} – ${p.w}×${p.h}, ${sizeLabel(part)}` +
-    [chambersText(p), mountText(p), p.ce && 'zkosení', p.flute && 'drážkování', slotText(p.slots, p.slot_shape, 'výřezy v bocích'),
+    [outletText(part), chambersText(p), mountText(p), p.ce && 'zkosení', p.flute && 'drážkování', slotText(p.slots, p.slot_shape, 'výřezy v bocích'),
       slotText(p.floor_slots, p.floor_slot_shape, 'výřezy ve dně'), p.lid && 'pro kryt']
       .filter(Boolean).map((x) => `, ${x}`).join('');
 }
@@ -1183,6 +1205,7 @@ const lidVariant = (part) => (part.type === 's' ? variant(part) : { label: '', s
 
 const lidLabel = (part) =>
   `Kryt – ${TYPES[part.type].lidLabel}${lidVariant(part).label ? ` (${lidVariant(part).label})` : ''}, šířka ${part.params.w}, ${sizeLabel(part)}` +
+  (hasOutlet(part) ? `, ${outletText(part)}` : '') +
   (part.params.ce ? ', zkosení' : '') + (part.params.lid_slots ? `, ${slotText(true, part.params.lid_slot_shape, 's výřezy')}` : '');
 
 const sizeSlug = (part) => part.params.len ?? part.params.arm;
@@ -1190,12 +1213,12 @@ const shapeSlug = (shape) => ({ round: '-obl', hex: '-hex' })[shape] ?? '';
 const bodyFile = (part) => {
   const p = part.params;
   return `${TYPES[part.type].slug}${variant(part).slug}_${p.w}x${p.h}_${sizeSlug(part)}mm` +
-    `${p.div_n > 1 ? `_${p.div_n}komory` : ''}${p.mount === 'screw' ? `_sroub${p.screw_d}` : p.mount === 'tape' ? '_paska' : ''}${p.ce ? '_zkos' : ''}${p.flute ? '_drazky' : ''}` +
+    `${outletSlug(part)}${p.div_n > 1 ? `_${p.div_n}komory` : ''}${p.mount === 'screw' ? `_sroub${p.screw_d}` : p.mount === 'tape' ? '_paska' : ''}${p.ce ? '_zkos' : ''}${p.flute ? '_drazky' : ''}` +
     `${p.slots ? `_bok${shapeSlug(p.slot_shape)}` : ''}${p.floor_slots ? `_dno${shapeSlug(p.floor_slot_shape)}` : ''}${p.lid ? '_kryt' : ''}`;
 };
 const lidFile = (part) =>
   `kryt-${TYPES[part.type].slug}${lidVariant(part).slug}_${part.params.w}_${sizeSlug(part)}mm` +
-  `${part.params.ce ? '_zkos' : ''}${part.params.lid_slots ? `_vyrezy${shapeSlug(part.params.lid_slot_shape)}` : ''}`;
+  `${outletSlug(part)}${part.params.ce ? '_zkos' : ''}${part.params.lid_slots ? `_vyrezy${shapeSlug(part.params.lid_slot_shape)}` : ''}`;
 
 function renderPartPanel() {
   const panel = document.getElementById('part-panel');
@@ -1235,6 +1258,7 @@ function renderPartPanel() {
 
   const rows = {};
   for (const group of PART_GROUPS) {
+    if (group.only && !group.only.includes(part.type)) continue;
     const section = document.createElement('div');
     section.className = 'segment';
     section.innerHTML = `<div class="segment-head"><h3>${group.title}</h3></div>`;
@@ -1388,13 +1412,13 @@ function sizeText(part, lid) {
 
 function bodyMods(part) {
   const p = part.params;
-  return [variant(part).label, chambersText(p), mountText(p), p.ce && `zkosení ${fmt(p.ce)}`, p.flute && 'drážky',
+  return [variant(part).label, outletText(part), chambersText(p), mountText(p), p.ce && `zkosení ${fmt(p.ce)}`, p.flute && 'drážky',
     slotText(p.slots, p.slot_shape, 'výřezy boky'), slotText(p.floor_slots, p.floor_slot_shape, 'výřezy dno'),
     p.lid && 'pro kryt'].filter(Boolean).join(' · ');
 }
 
 const lidMods = (part) =>
-  [lidVariant(part).label, part.params.ce && 'zkosení', slotText(part.params.lid_slots, part.params.lid_slot_shape, 'výřezy')]
+  [lidVariant(part).label, outletText(part), part.params.ce && 'zkosení', slotText(part.params.lid_slots, part.params.lid_slot_shape, 'výřezy')]
     .filter(Boolean).join(' · ');
 
 function buildPrintList() {

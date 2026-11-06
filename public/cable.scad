@@ -62,6 +62,10 @@ screw_cs = true;   // zahloubení pro zápustnou hlavu (kužel 90°)
 tape_w   = 12;     // šířka pásky
 tape_d   = 0.4;    // hloubka kapsy ve spodku (menší než tloušťka pásky, aby páska přesahovala)
 
+/* [Koncovka] */
+outlet  = "none"; // [none, hole, slot] – plné čelo, kulatý otvor, výřez do U shora
+cable_d = 8;      // průměr vyvedeného kabelu (otvor má +1 mm)
+
 /* [Přepážky] */
 div_n = 1;   // počet komor, 1 = bez přepážek
 div_t = 1.6; // tloušťka přepážky
@@ -110,15 +114,16 @@ if (what == "body")
              floor_slot_m = floor_slot_m, floor_slot_a = floor_slot_a, floor_slot_shape = floor_slot_shape,
              lid = lid, bc = bc, er = er, flute = flute, flute_p = flute_p,
              div_n = div_n, div_t = div_t, div_h = div_h, label = label,
-             mount = mount, screw_d = screw_d, screw_cs = screw_cs, tape_w = tape_w, tape_d = tape_d);
+             mount = mount, screw_d = screw_d, screw_cs = screw_cs, tape_w = tape_w, tape_d = tape_d,
+             outlet = outlet, cable_d = cable_d);
 else if (what == "lid")
   cable_lid_print(part, len = len, arm = arm, w = w, h = h, t = t, f = f, c = c, lid_bump = lid_bump, lid_t = lid_t, ce = ce,
                   lid_slots = lid_slots, lid_slot_w = lid_slot_w, lid_slot_bar = lid_slot_bar, lid_slot_m = lid_slot_m,
-                  lid_slot_a = lid_slot_a, lid_slot_shape = lid_slot_shape, er = er);
+                  lid_slot_a = lid_slot_a, lid_slot_shape = lid_slot_shape, er = er, outlet = outlet, cable_d = cable_d);
 else if (what == "lid_view")
   cable_lid_placed(part, len = len, arm = arm, w = w, h = h, t = t, f = f, c = c, lid_bump = lid_bump, lid_t = lid_t, ce = ce,
                    lid_slots = lid_slots, lid_slot_w = lid_slot_w, lid_slot_bar = lid_slot_bar, lid_slot_m = lid_slot_m,
-                   lid_slot_a = lid_slot_a, lid_slot_shape = lid_slot_shape, er = er);
+                   lid_slot_a = lid_slot_a, lid_slot_shape = lid_slot_shape, er = er, outlet = outlet, cable_d = cable_d);
 
 // Ramena dílu: [rámec pro rotate(), délka od středu k portu].
 // Zatáčka nahoru: svislé rameno jde do +z, otevřená strana míří do -x.
@@ -284,6 +289,25 @@ module end_round(W)
       children();
       translate([0, -50]) square([W, 200]);
     }
+
+// Vývod kabelu v čele koncovky (ve směru -x): kabel leží na dně, otvor má +1 mm.
+// hole = kulatý otvor, slot = výřez do U otevřený nahoru (kabel se vloží i s konektorem).
+function outlet_r(w, h, d) = min(d + 1, w - 2, h - 1) / 2;
+module end_outlet(w, h, f, outlet, d) {
+  r = outlet_r(w, h, d);
+  rotate([0, -90, 0]) linear_extrude(w + 20)
+    hull() {
+      translate([f + r, 0]) circle(r = r);
+      if (outlet == "slot") translate([f + h + 5, -r]) square([0.01, 2 * r]);
+    }
+}
+
+// Límec krytu koncovky nad vývodem se vyřízne, aby kabel nezakrýval.
+module end_outlet_lid_cut(w, h, c, d) {
+  r = outlet_r(w, h, d) + 0.5;
+  ri = w / 2 - c - lip_w;
+  translate([-w, -r, -lip_d - 1]) cube([w - sqrt(max(0, ri * ri - r * r)) + 0.01, 2 * r, lip_d + 1]);
+}
 
 function corner_rounded(part, er, t) = part == "corner" && round_r(er, t) > 0;
 
@@ -564,7 +588,8 @@ module cable_part(part, len = 80, arm = 40, w = 30, h = 20, t = 2, f = 3, c = 0.
                   floor_slot_shape = "rect",
                   lid = false, bc = 0, er = 0, flute = false, flute_p = 3,
                   div_n = 1, div_t = 1.6, div_h = 20, label = "",
-                  mount = "none", screw_d = 2, screw_cs = true, tape_w = 12, tape_d = 0.4) {
+                  mount = "none", screw_d = 2, screw_cs = true, tape_w = 12, tape_d = 0.4,
+                  outlet = "none", cable_d = 8) {
   $fn = 32; // i při `use <cable.scad>`, kde se globální $fn nepřebírá
   A = arms(part, len, arm);
   W = w + 2 * t;
@@ -611,6 +636,7 @@ module cable_part(part, len = 80, arm = 40, w = 30, h = 20, t = 2, f = 3, c = 0.
       floor_slots_cut(part, len, arm, w, h, t, f, floor_slot_w, floor_slot_bar, floor_slot_m, floor_slot_a, ce,
                       floor_slot_shape);
     if (flute) flutes(part, len, arm, w, h, t, f, bc, er, ce, flute_p);
+    if (part == "end" && outlet != "none") end_outlet(w, h, f, outlet, cable_d);
     if (mount == "screw") screw_holes(part, len, arm, w, f, ce, screw_d, screw_cs, div_n);
     if (mount == "tape") tape_pocket(part, len, arm, w, t, f, bc, ce, tape_w, tape_d);
     if (label != "") code_mark(part, len, arm, w, t, f, bc, ce, label, mount, screw_d, screw_cs, tape_w, div_n);
@@ -649,7 +675,7 @@ module lid_snap_bumps(x, w, c, lid_bump, z0 = 0) {
 // Ramena se potkávají pokosem jako u těla dílu.
 module cable_lid(part, len = 80, arm = 40, w = 30, t = 2, c = 0.2, lid_bump = 0.6, lid_t = 2, ce = 0,
                  lid_slots = false, lid_slot_w = 6, lid_slot_bar = 6, lid_slot_m = 2, lid_slot_a = 45,
-                 lid_slot_shape = "rect", er = 0) {
+                 lid_slot_shape = "rect", er = 0, outlet = "none", cable_d = 8, h = 20) {
   $fn = 32;
   A = arms(part, len, arm);
   W = w + 2 * t;
@@ -672,6 +698,7 @@ module cable_lid(part, len = 80, arm = 40, w = 30, t = 2, c = 0.2, lid_bump = 0.
       for (sg = segs) rotate(sg[0]) for (s = snaps_on(sg)) lid_snap_bumps(s[1], w, c, lid_bump);
     }
     for (a = A) rotate(a[0]) lid_end_cut(a[1], W, lid_t, ce);
+    if (part == "end" && outlet != "none") end_outlet_lid_cut(w, h, c, cable_d);
     if (lid_slots)
       for (sg = segs) rotate(sg[0])
         lid_slots_cut(sg, w, c, lid_t, lid_slot_w, lid_slot_bar, lid_slot_m, lid_slot_a, lid_slot_shape);
@@ -742,7 +769,8 @@ module s_lid_placed(len, arm, w, h, t, f, c, lid_bump, lid_t, ce,
 // Kryt v poloze na dílu (souřadnice dílu), pro náhled a sestavu.
 module cable_lid_placed(part, len = 80, arm = 40, w = 30, h = 20, t = 2, f = 3, c = 0.2, lid_bump = 0.6,
                         lid_t = 2, ce = 0, lid_slots = false, lid_slot_w = 6, lid_slot_bar = 6,
-                        lid_slot_m = 2, lid_slot_a = 45, lid_slot_shape = "rect", er = 0) {
+                        lid_slot_m = 2, lid_slot_a = 45, lid_slot_shape = "rect", er = 0,
+                        outlet = "none", cable_d = 8) {
   $fn = 32;
   if (part == "s") {
     s_lid_placed(len, arm, w, h, t, f, c, lid_bump, lid_t, ce,
@@ -755,7 +783,7 @@ module cable_lid_placed(part, len = 80, arm = 40, w = 30, h = 20, t = 2, f = 3, 
   } else {
     translate([0, 0, f + h])
       cable_lid(part, len, arm, w, t, c, lid_bump, lid_t, ce, lid_slots, lid_slot_w, lid_slot_bar, lid_slot_m,
-                lid_slot_a, lid_slot_shape, er);
+                lid_slot_a, lid_slot_shape, er, outlet, cable_d, h);
   }
 }
 
@@ -763,7 +791,8 @@ module cable_lid_placed(part, len = 80, arm = 40, w = 30, h = 20, t = 2, f = 3, 
 // jsou dvě desky vedle sebe.
 module cable_lid_print(part, len = 80, arm = 40, w = 30, h = 20, t = 2, f = 3, c = 0.2, lid_bump = 0.6,
                        lid_t = 2, ce = 0, lid_slots = false, lid_slot_w = 6, lid_slot_bar = 6,
-                       lid_slot_m = 2, lid_slot_a = 45, lid_slot_shape = "rect", er = 0) {
+                       lid_slot_m = 2, lid_slot_a = 45, lid_slot_shape = "rect", er = 0,
+                        outlet = "none", cable_d = 8) {
   $fn = 32;
   W = w + 2 * t;
   if (part == "s") {
@@ -778,6 +807,6 @@ module cable_lid_print(part, len = 80, arm = 40, w = 30, h = 20, t = 2, f = 3, c
   } else {
     rotate([180, 0, 0]) translate([0, 0, -lid_t])
       cable_lid(part, len, arm, w, t, c, lid_bump, lid_t, ce, lid_slots, lid_slot_w, lid_slot_bar, lid_slot_m,
-                lid_slot_a, lid_slot_shape, er);
+                lid_slot_a, lid_slot_shape, er, outlet, cable_d, h);
   }
 }
