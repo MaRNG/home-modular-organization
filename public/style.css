@@ -1244,6 +1244,101 @@ button.choice:hover .choice-text { color: var(--ink); }
 .part-picks button:hover { background: var(--amber); }
 .part-picks .ico { width: 28px; height: 28px; }
 
+/* --- Průvodce (core/tour.js) ------------------------------------------------ */
+
+.btn-help { width: 36px; padding: 0; font: 700 18px/1 var(--f-label); }
+
+.tour { position: fixed; inset: 0; z-index: 20; }
+
+/* Zvýraznění cíle: okolí ztmaví stín, cíl zůstane vidět a nejde na něj kliknout. */
+.tour-spot {
+  position: fixed;
+  border-radius: var(--radius);
+  box-shadow: 0 0 0 2px var(--amber), 0 0 0 9999px rgb(77 42 0 / 0.55);
+  transition: left 260ms var(--ease-out), top 260ms var(--ease-out), width 260ms var(--ease-out), height 260ms var(--ease-out);
+}
+
+.tour-spot.none { box-shadow: 0 0 0 9999px rgb(77 42 0 / 0.55); }
+
+.tour-card {
+  position: fixed;
+  width: min(360px, calc(100vw - 24px));
+  padding: 14px 18px 16px;
+  border: 2px solid var(--ink);
+  border-radius: var(--radius);
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.tour-card:focus { outline: 0; }
+.tour-card.in { animation: tour-in 220ms var(--ease-out); }
+
+@keyframes tour-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* Šipka: čtverec otočený o 45°, vyčnívá na straně k cíli. */
+.tour-arrow {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--ink);
+  background: var(--paper);
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.tour-card[data-side="bottom"] .tour-arrow { top: 0; border-right: 0; border-bottom: 0; }
+.tour-card[data-side="top"] .tour-arrow { top: 100%; border-top: 0; border-left: 0; }
+.tour-card[data-side="right"] .tour-arrow { left: 0; border-top: 0; border-right: 0; }
+.tour-card[data-side="left"] .tour-arrow { left: 100%; border-bottom: 0; border-left: 0; }
+.tour-card[data-side="inside"] .tour-arrow, .tour-card[data-side="none"] .tour-arrow { display: none; }
+
+.tour-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.tour-step { color: var(--ink-2); font: 400 12px/1 var(--f-mono); }
+
+.tour-skip {
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: var(--ink-2);
+  font: 600 12px/1 var(--f-label);
+  letter-spacing: 0.08em;
+  text-decoration: underline;
+  text-decoration-color: var(--line-strong);
+  text-underline-offset: 3px;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.tour-skip:hover { color: var(--ink); text-decoration-color: var(--rust); }
+
+.tour-title {
+  margin: 0 0 6px;
+  font: 700 20px/1.1 var(--f-label);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.tour-text { margin: 0; font-size: 14px; }
+.tour-text b { font-weight: 600; }
+
+.tour-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed var(--line-strong);
+}
+
+.tour-never { display: flex; align-items: center; gap: 6px; color: var(--ink-2); font-size: 13px; cursor: pointer; }
+.tour-never input { accent-color: var(--ink); }
+.tour-nav { display: flex; gap: var(--u); margin-left: auto; }
+.tour-nav .btn { min-height: 32px; padding: 0 12px; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }

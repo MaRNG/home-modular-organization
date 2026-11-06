@@ -6,6 +6,7 @@ import { download, esc, fileSlug } from './core/storage.js';
 import { loadSettings, currentPrinter, printerName, footprint, checkFit } from './core/printers.js';
 import { listAssemblies, assemblyFile } from './core/library.js';
 import { openPrinterDialog, openLibraryDialog } from './core/dialogs.js';
+import { startTour, tourSeen, tourActive } from './core/tour.js';
 
 // Kategorie MOD, kterou tato aplikace obsluhuje (klíč v knihovně sestav a v souborech).
 const CATEGORY = 'cables';
@@ -1696,7 +1697,60 @@ function openStart(step = 'category') {
 function closeStart() {
   if (!state.parts.length) return; // bez sestavy není s čím pracovat
   startModal.hidden = true;
+  maybeStartTour();
 }
+
+// ---------------------------------------------------------------------------
+// Průvodce editorem (core/tour.js). Spustí se sám při prvním vstupu do editoru,
+// znovu ho otevře otazník v horním pruhu.
+
+const TOUR_ID = 'cables-editor';
+
+// Poloha první šipky pro připojení dílu na obrazovce.
+function portMarkerRect() {
+  const marker = portGroup.children[0];
+  if (!marker) return null;
+  const v = marker.getWorldPosition(new THREE.Vector3()).project(camera);
+  if (v.z > 1 || Math.abs(v.x) > 1 || Math.abs(v.y) > 1) return null;
+  const r = viewport.getBoundingClientRect();
+  return new DOMRect(r.left + ((v.x + 1) / 2) * r.width - 22, r.top + ((1 - v.y) / 2) * r.height - 22, 44, 44);
+}
+
+const TOUR_STEPS = [
+  { target: '#viewport', title: '3D náhled sestavy',
+    html: '<b>Klik</b> na díl ho vybere, <b>tažením</b> sestavu otočíš a <b>kolečkem</b> přiblížíš. Písmeno nad dílem je kód jeho STL na tabuli K tisku.' },
+  { target: portMarkerRect, title: 'Připojení dalšího dílu',
+    html: 'Tmavá <b>šipka</b> na volném konci otevře nabídku dílů: rovný, zatáčky, křižovatka, ohyb nahoru a dolů a díl S. Nový díl převezme rozměry a úpravy dílu, na který se připojuje.' },
+  { target: '#fit', side: 'left', title: 'Celá sestava',
+    text: 'Když se ve scéně ztratíš, tímto tlačítkem se zobrazí celá sestava.' },
+  { target: '.pass-tabs', side: 'left', title: 'Nastavení',
+    html: '<b>Díl</b> nastavuje vybraný díl: rozměry, zkosení, výřezy a kryt. <b>Trasa</b> mění délku a počet dílů rovné trasy ze šablony. <b>Sestava</b> nastavuje tloušťky stěn a vůle spojů pro všechny díly. Pod záložkou vždy vidíš, pro kolik dílů změna platí.' },
+  { target: '.board-scroll', side: 'top', title: 'K tisku',
+    html: 'Každý řádek je jedno <b>unikátní STL</b> s počtem kusů. Najetím myší zvýrazníš odpovídající díly ve scéně, klikem díl vybereš a tlačítkem <b>STL</b> ho stáhneš.' },
+  { target: '#printer', side: 'top', title: 'Tiskárna',
+    html: 'Vyber svou tiskárnu nebo přidej vlastní. Sloupec <b>Podložka</b> ukáže, jestli se díl vejde. Co se nevejde, je označené <b>červeně</b>.' },
+  { target: '#export-zip', side: 'top', title: 'Stáhnout vše',
+    text: 'ZIP obsahuje všechna STL s počtem kusů v názvu, kusovník a sestavu pro OpenSCAD.' },
+  { target: '#library', side: 'bottom', title: 'Sestavy',
+    text: 'Sestavu ulož pod názvem, otevři jinou nebo ji exportuj a importuj jako JSON.' },
+  { target: '#help', side: 'bottom', title: 'Průvodce kdykoli znovu',
+    text: 'Tento otazník spustí průvodce znovu. Tím je to všechno, hodně zdaru s tiskem.' },
+];
+
+function openTour() {
+  closePortMenu();
+  startTour(TOUR_ID, TOUR_STEPS);
+}
+
+function maybeStartTour() {
+  if (tourSeen(TOUR_ID) || tourActive() || !state.parts.length) return;
+  // Chvíli počkat, až se sestava vykreslí a kamera ji zabere.
+  setTimeout(() => {
+    if (!tourSeen(TOUR_ID) && !tourActive() && startModal.hidden && document.getElementById('dialog').hidden) openTour();
+  }, 900);
+}
+
+document.getElementById('help').onclick = openTour;
 
 startModal.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') closeStart();
@@ -1712,3 +1766,4 @@ changed();
 for (const part of state.parts) refreshGeometry(part);
 // Rozpracovaná sestava se otevře rovnou, úvodní okno je za tlačítkem Nová sestava.
 if (!state.parts.length) openStart();
+else maybeStartTour();
