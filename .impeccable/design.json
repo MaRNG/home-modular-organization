@@ -1,0 +1,173 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-06T12:00:00Z",
+  "title": "Design System: MOD · Modulární organizace domácnosti",
+  "extensions": {
+    "colorMeta": {
+      "ink": { "role": "neutral", "displayName": "Inkoust", "canonical": "#4d2a00", "tonalRamp": ["#150700", "#371d00", "#5a360f", "#7b542f", "#9c744e", "#bf956e", "#e6bb93", "#feebd9"] },
+      "ink-2": { "role": "neutral", "displayName": "Inkoust 2", "canonical": "#6e4a18", "tonalRamp": ["#140800", "#341f01", "#593701", "#7a5525", "#9c7545", "#be9666", "#e6bc8a", "#ffebd4"] },
+      "ink-3": { "role": "neutral", "displayName": "Inkoust 3", "canonical": "#87612a", "tonalRamp": ["#130900", "#341f00", "#583800", "#7b551d", "#9c753f", "#bf9660", "#e6bc85", "#ffebd3"] },
+      "paper": { "role": "neutral", "displayName": "Papír lístku", "canonical": "#f9e6a8", "tonalRamp": ["#100b00", "#2d2300", "#4d3e00", "#6d5c20", "#8e7c41", "#b09e62", "#d6c387", "#ffeeb8"] },
+      "paper-hi": { "role": "neutral", "displayName": "Světlý papír", "canonical": "#fdf5dc", "tonalRamp": ["#100a00", "#2a2410", "#463f2b", "#645d48", "#847d67", "#a69e87", "#ccc4ac", "#f6eed6"] },
+      "amber": { "role": "primary", "displayName": "Jantarový filament", "canonical": "#f2a900", "tonalRamp": ["#120900", "#322000", "#563a02", "#7c5501", "#a57205", "#d09102", "#feb423", "#ffecd0"] },
+      "amber-hi": { "role": "primary", "displayName": "Rozžhavený jantar", "canonical": "#ffc43a", "tonalRamp": ["#110a00", "#302101", "#523c02", "#785800", "#9f7603", "#c89507", "#f4ba2a", "#ffecc9"] },
+      "rust": { "role": "secondary", "displayName": "Rez", "canonical": "#cc6f00", "tonalRamp": ["#160700", "#391b00", "#613201", "#8b4a02", "#b86404", "#e2832a", "#ffb072", "#feeadc"] },
+      "line": { "role": "neutral", "displayName": "Linka", "canonical": "rgb(77 42 0 / 0.16)" },
+      "line-strong": { "role": "neutral", "displayName": "Silná linka", "canonical": "rgb(77 42 0 / 0.38)" },
+      "on-ink": { "role": "neutral", "displayName": "Text na inkoustu", "canonical": "#f9e6a8", "tonalRamp": ["#100b00", "#2d2300", "#4d3e00", "#6d5c20", "#8e7c41", "#b09e62", "#d6c387", "#ffeeb8"] },
+      "on-ink-2": { "role": "neutral", "displayName": "Tlumený text na inkoustu", "canonical": "rgb(249 230 168 / 0.68)" },
+      "on-ink-line": { "role": "neutral", "displayName": "Linka na inkoustu", "canonical": "rgb(249 230 168 / 0.14)" }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Kód vybraného dílu v hlavičce lístku, jednou na obrazovce." },
+      "headline": { "displayName": "Headline", "purpose": "Výsledná hodnota trasy; titul volby a výsledek šablony v úvodním okně." },
+      "title": { "displayName": "Title", "purpose": "Typ dílu, prázdný stav, nadpis dialogu, značka MOD. Velká písmena." },
+      "section": { "displayName": "Section", "purpose": "Nadpisy segmentů, K TISKU, sekce dialogu, záložky. Velká písmena." },
+      "label": { "displayName": "Label", "purpose": "Popisky útržku, hlavičky tabule, stavy, odznaky. Velká písmena." },
+      "button": { "displayName": "Button", "purpose": "Text tlačítek. Velká písmena." },
+      "body": { "displayName": "Body", "purpose": "Věty, poznámky, legenda scény; tabulkové číslice." },
+      "body-sm": { "displayName": "Body small", "purpose": "Popisky polí a meta řádky." },
+      "data": { "displayName": "Data", "purpose": "Rozměry v útržku a ve vstupech, počty." },
+      "data-sm": { "displayName": "Data small", "purpose": "Jednotky, souhrn tabule, krok dialogu, kódy." }
+    },
+    "shadows": [
+      { "name": "changed-row-mark", "value": "inset 3px 0 0 var(--rust)", "purpose": "Rezavá značka na první buňce změněného řádku tabule. Ostrá, bez rozostření." },
+      { "name": "changed-state-outline", "value": "inset 0 0 0 1px var(--rust)", "purpose": "Obrys stavu ZMĚNĚNO spolu s podkladem rgb(204 111 0 / 0.28)." },
+      { "name": "thumb-focus-ring", "value": "0 0 0 3px var(--paper), 0 0 0 5px var(--rust)", "purpose": "Focus palce posuvníku." }
+    ],
+    "motion": [
+      { "name": "ease-out", "value": "cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Výchozí křivka pro přechody i split-flap." },
+      { "name": "state-transition", "value": "160ms", "purpose": "Barva pozadí, textu a rámu u tlačítek, voleb a řádků tabule." },
+      { "name": "split-flap", "value": "flap 520ms ease-out, +40ms na buňku", "purpose": "Překlopení změněného řádku tabule z rotateX(-88deg) s perspektivou 240px." },
+      { "name": "render-pulse", "value": "pulse 1s ease-in-out infinite alternate", "purpose": "Tečka stavu renderu při počítání." },
+      { "name": "reduced-motion", "value": "animation: none; transition: none", "purpose": "Při prefers-reduced-motion se vypne veškerý pohyb." }
+    ],
+    "breakpoints": [
+      { "name": "narrow", "value": "900px" },
+      { "name": "stacked", "value": "720px" }
+    ],
+    "scene3d": {
+      "PLASTIC": "#f2a900",
+      "PLASTIC_SELECTED": "#cc6f00",
+      "LID": "#f9e6a8",
+      "LID_SELECTED": "#f5c46a",
+      "background": "#fdf5dc",
+      "portMarker": "#4d2a00",
+      "portMarkerHover": "#f2a900",
+      "material": "MeshStandardMaterial, roughness 0.55"
+    }
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Jediná hlavní akce oblasti: Stáhnout vše, Vytvořit trasu.",
+      "html": "<button class=\"ds-btn ds-btn-primary\"><svg class=\"ds-ico\" viewBox=\"0 0 24 24\"><path d=\"M12 3.5v11M7.5 10l4.5 4.5 4.5-4.5M4 17.5v3h16v-3\"/></svg>Stáhnout vše · ZIP</button>",
+      "css": ".ds-btn { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0 16px; border: 1.5px solid var(--ink); border-radius: 3px; background: transparent; color: var(--ink); font: 600 14px/1 var(--f-label); letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; transition: background-color 160ms var(--ease-out), color 160ms var(--ease-out), border-color 160ms var(--ease-out); } .ds-btn-primary { border-color: var(--amber); background: var(--amber); } .ds-btn-primary:hover { border-color: var(--amber-hi); background: var(--amber-hi); } .ds-btn:focus-visible { outline: 2px solid var(--rust); outline-offset: 2px; } .ds-ico { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: square; stroke-linejoin: miter; }"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Vedlejší akce na papíře; hover se vybarví inkoustem.",
+      "html": "<button class=\"ds-btn-outline\">Pokračovat</button>",
+      "css": ".ds-btn-outline { min-height: 36px; padding: 0 16px; border: 1.5px solid var(--ink); border-radius: 3px; background: transparent; color: var(--ink); font: 600 14px/1 var(--f-label); letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; transition: background-color 160ms var(--ease-out), color 160ms var(--ease-out); } .ds-btn-outline:hover { background: var(--ink); color: var(--paper); } .ds-btn-outline:focus-visible { outline: 2px solid var(--rust); outline-offset: 2px; }"
+    },
+    {
+      "name": "On-dark Button",
+      "kind": "button",
+      "refersTo": "button-on-dark",
+      "description": "Vedlejší akce na inkoustu: Nová sestava, STL sestavy.",
+      "html": "<div class=\"ds-dark\"><button class=\"ds-btn-dark\">Nová sestava</button></div>",
+      "css": ".ds-dark { padding: 16px; background: var(--ink); } .ds-btn-dark { min-height: 36px; padding: 0 16px; border: 1.5px solid var(--on-ink-2); border-radius: 3px; background: transparent; color: var(--on-ink); font: 600 14px/1 var(--f-label); letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; transition: background-color 160ms var(--ease-out), color 160ms var(--ease-out); } .ds-btn-dark:hover { border-color: var(--paper); background: var(--paper); color: var(--ink); } .ds-btn-dark:focus-visible { outline: 2px solid var(--rust); outline-offset: 2px; }"
+    },
+    {
+      "name": "Pass Tabs",
+      "kind": "nav",
+      "refersTo": "tab-active",
+      "description": "Záložky lístku DÍL / TRASA / SESTAVA se štítkem rozsahu.",
+      "html": "<div class=\"ds-tabs\" role=\"tablist\"><button role=\"tab\" aria-selected=\"true\">Díl<span>4 díly trasy</span></button><button role=\"tab\">Trasa<span>4 díly</span></button><button role=\"tab\">Sestava<span>9 dílů</span></button></div>",
+      "css": ".ds-tabs { display: grid; grid-template-columns: repeat(3, 1fr); border-bottom: 1.5px solid var(--ink); background: var(--paper); } .ds-tabs button { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 10px 14px 9px; border: 0; border-right: 1px solid var(--line-strong); background: none; color: var(--ink); font: 700 15px/1 var(--f-label); letter-spacing: 0.1em; text-transform: uppercase; cursor: pointer; } .ds-tabs button:last-child { border-right: 0; } .ds-tabs button:hover:not([aria-selected=\"true\"]) { background: rgb(77 42 0 / 0.06); } .ds-tabs button[aria-selected=\"true\"] { background: var(--amber); } .ds-tabs button:focus-visible { outline: 2px solid var(--rust); outline-offset: -2px; } .ds-tabs span { color: var(--ink-2); font: 500 12px/1 var(--f-body); letter-spacing: 0; text-transform: none; } .ds-tabs [aria-selected=\"true\"] span { color: var(--ink); }"
+    },
+    {
+      "name": "Value Field",
+      "kind": "input",
+      "refersTo": "input-value",
+      "description": "Parametr s mono hodnotou, jednotkou a posuvníkem.",
+      "html": "<div class=\"ds-field\"><div class=\"ds-field-row\"><label for=\"ds-w\">Vnitřní šířka</label><span><input id=\"ds-w\" type=\"number\" value=\"36\"><small>mm</small></span></div><input type=\"range\" min=\"10\" max=\"80\" value=\"36\" aria-label=\"Vnitřní šířka\"></div>",
+      "css": ".ds-field { width: 320px; padding: 16px; background: var(--paper); } .ds-field-row { display: flex; justify-content: space-between; align-items: baseline; } .ds-field label { color: var(--ink-2); font: 500 13px/1.2 var(--f-body); } .ds-field-row input { width: 64px; padding: 2px 0; border: 0; border-bottom: 1.5px solid var(--line-strong); background: none; color: var(--ink); font: 500 15px/1.2 var(--f-mono); text-align: right; } .ds-field-row input:focus { outline: 0; border-bottom-color: var(--rust); } .ds-field small { margin-left: 4px; color: var(--ink-3); font: 400 12px/1 var(--f-mono); } .ds-field input[type=range] { width: 100%; height: 20px; appearance: none; -webkit-appearance: none; background: none; } .ds-field input[type=range]::-webkit-slider-runnable-track { height: 3px; background: var(--line-strong); } .ds-field input[type=range]::-moz-range-track { height: 3px; background: var(--line-strong); } .ds-field input[type=range]::-moz-range-progress { height: 3px; background: var(--ink); } .ds-field input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; margin-top: -6.5px; border: 2px solid var(--ink); border-radius: 50%; background: var(--amber); } .ds-field input[type=range]::-moz-range-thumb { width: 12px; height: 12px; border: 2px solid var(--ink); border-radius: 50%; background: var(--amber); } .ds-field input[type=range]:focus-visible { outline: 0; } .ds-field input[type=range]:focus-visible::-webkit-slider-thumb { box-shadow: 0 0 0 3px var(--paper), 0 0 0 5px var(--rust); }"
+    },
+    {
+      "name": "Category Chip",
+      "kind": "chip",
+      "refersTo": "chip-category",
+      "description": "Aktivní kategorie v horním pruhu.",
+      "html": "<div class=\"ds-dark\"><span class=\"ds-chip\">Kabely</span></div>",
+      "css": ".ds-dark { padding: 16px; background: var(--ink); } .ds-chip { display: inline-block; padding: 5px 10px 4px; border-radius: 3px; background: var(--amber); color: var(--ink); font: 700 13px/1 var(--f-label); letter-spacing: 0.1em; text-transform: uppercase; }"
+    },
+    {
+      "name": "Pass Head and Stub",
+      "kind": "card",
+      "refersTo": "",
+      "description": "Hlavička palubního lístku: kód dílu, útržek s daty, perforace a rozsah změny.",
+      "html": "<div class=\"ds-pass\"><div class=\"ds-pass-head\"><div class=\"ds-code\">A</div><div class=\"ds-type\">Rovný díl</div><div class=\"ds-meta\">#1</div></div><dl class=\"ds-stub\"><div><dt>Rozměr</dt><dd>36×20×150</dd></div><div><dt>Ks</dt><dd>4</dd></div><div><dt>Trasa</dt><dd>4 díly</dd></div><div><dt>Stav</dt><dd class=\"ds-state\">Změněno</dd></div></dl><div class=\"ds-tear\"></div><div class=\"ds-scope\"><span>Platí pro</span><b>4 díly rovné trasy</b></div></div>",
+      "css": ".ds-pass { width: 384px; overflow: hidden; border: 1.5px solid var(--ink); background: var(--paper); color: var(--ink); } .ds-pass-head { display: grid; grid-template-columns: auto 1fr; gap: 0 16px; align-items: end; padding: 16px 16px 12px; background: var(--paper-hi); } .ds-code { grid-row: span 2; font: 700 64px/0.8 var(--f-label); letter-spacing: -0.01em; } .ds-type { font: 700 20px/1.05 var(--f-label); letter-spacing: 0.02em; text-transform: uppercase; } .ds-meta { color: var(--ink-2); font: 500 13px/1.3 var(--f-body); } .ds-stub { display: grid; grid-template-columns: 1.5fr 0.6fr 1fr 1.1fr; margin: 0; padding: 0 16px 12px; background: var(--paper-hi); } .ds-stub > div { padding: 0 10px; border-left: 1px solid var(--line-strong); } .ds-stub > div:first-child { padding-left: 0; border-left: 0; } .ds-stub dt { margin-bottom: 6px; color: var(--ink-2); font: 600 11px/1 var(--f-label); letter-spacing: 0.1em; text-transform: uppercase; } .ds-stub dd { margin: 0; font: 500 15px/1.1 var(--f-mono); white-space: nowrap; } .ds-stub dd.ds-state { font: 600 14px/1.1 var(--f-label); letter-spacing: 0.04em; text-transform: uppercase; } .ds-tear { position: relative; border-top: 2px dashed var(--line-strong); } .ds-tear::before, .ds-tear::after { content: ''; position: absolute; top: -8px; width: 14px; height: 14px; border: 1.5px solid var(--ink); border-radius: 50%; background: var(--paper); } .ds-tear::before { left: -9px; } .ds-tear::after { right: -9px; } .ds-scope { display: flex; justify-content: space-between; align-items: baseline; padding: 12px 16px; border-bottom: 1.5px solid var(--ink); background: var(--paper-hi); } .ds-scope span { color: var(--ink-2); font: 600 12px/1 var(--f-label); letter-spacing: 0.1em; text-transform: uppercase; } .ds-scope b { font: 600 14px/1 var(--f-body); } .ds-scope b::before { content: ''; display: inline-block; width: 8px; height: 8px; margin-right: 8px; background: var(--rust); vertical-align: 1px; }"
+    },
+    {
+      "name": "Print Board Row",
+      "kind": "custom",
+      "refersTo": "state-changed",
+      "description": "Řádek odletové tabule K TISKU ve stavu ZMĚNĚNO se split-flap překlopením.",
+      "html": "<table class=\"ds-board\"><thead><tr><th>Kód</th><th>Díl</th><th>Rozměr</th><th>Ks</th><th>Stav</th></tr></thead><tbody><tr class=\"ds-changed ds-flip\"><td><span class=\"ds-bcode\">A</span></td><td class=\"ds-name\"><span>Rovný díl</span></td><td><span>36×20×150</span></td><td><span class=\"ds-count\">4</span></td><td><span class=\"ds-st ds-st-changed\">Změněno</span></td></tr><tr><td><span class=\"ds-bcode\">B</span></td><td class=\"ds-name\"><span>Zatáčka nahoru</span></td><td><span>30×20 · R50</span></td><td><span class=\"ds-count\">1</span></td><td><span class=\"ds-st\">Připraveno</span></td></tr></tbody></table>",
+      "css": ".ds-board { width: 560px; border-collapse: collapse; background: var(--ink); color: var(--on-ink); } .ds-board th { padding: 8px 10px 6px; color: var(--on-ink-2); font: 600 11px/1 var(--f-label); letter-spacing: 0.12em; text-align: left; text-transform: uppercase; } .ds-board td { height: 40px; padding: 0 10px; border-top: 1px solid var(--on-ink-line); font: 400 13px/1.2 var(--f-mono); white-space: nowrap; } .ds-board tbody tr { transition: background-color 160ms var(--ease-out); } .ds-board tbody tr:hover { background: rgb(249 230 168 / 0.07); } .ds-bcode { display: inline-block; min-width: 30px; padding: 4px 6px 3px; border: 1px solid var(--on-ink-2); border-radius: 2px; font-weight: 500; text-align: center; } .ds-name { font: 500 14px/1.1 var(--f-body); } .ds-count { font-size: 15px; font-weight: 500; } .ds-st { display: inline-block; padding: 4px 6px 3px; border-radius: 2px; color: var(--on-ink-2); font: 600 11px/1 var(--f-label); letter-spacing: 0.1em; text-transform: uppercase; } .ds-st-changed { background: rgb(204 111 0 / 0.28); box-shadow: inset 0 0 0 1px var(--rust); color: var(--on-ink); } .ds-changed td:first-child { box-shadow: inset 3px 0 0 var(--rust); } .ds-flip td > * { display: inline-block; animation: ds-flap 520ms var(--ease-out) both; transform-origin: 50% 60%; } .ds-flip td:nth-child(2) > * { animation-delay: 40ms; } .ds-flip td:nth-child(3) > * { animation-delay: 80ms; } .ds-flip td:nth-child(4) > * { animation-delay: 120ms; } .ds-flip td:nth-child(5) > * { animation-delay: 160ms; } @keyframes ds-flap { from { transform: perspective(240px) rotateX(-88deg); opacity: 0.2; } to { transform: none; opacity: 1; } } @media (prefers-reduced-motion: reduce) { .ds-flip td > * { animation: none; } }"
+    },
+    {
+      "name": "Choice Group",
+      "kind": "card",
+      "refersTo": "",
+      "description": "Volby v úvodním okně jako buňky jednoho rámu dělené perforací.",
+      "html": "<div class=\"ds-choices\"><button class=\"ds-choice\"><svg class=\"ds-cico\" viewBox=\"0 0 24 24\"><path d=\"M2.5 7.5h19v9h-19z\"/><path d=\"M2.5 10.5h19M2.5 13.5h19\" stroke-dasharray=\"1.5 2\"/></svg><span class=\"ds-ct\">Kabely</span><span class=\"ds-cx\">Kabelové žlaby s krytem.</span></button><div class=\"ds-choice ds-soon\"><svg class=\"ds-cico\" viewBox=\"0 0 24 24\"><rect x=\"2\" y=\"2\" width=\"9\" height=\"9\"/><rect x=\"13\" y=\"2\" width=\"9\" height=\"9\"/><rect x=\"2\" y=\"13\" width=\"20\" height=\"9\"/></svg><span class=\"ds-ct\">Další moduly</span><span class=\"ds-cx\">Šuplíky, nářadí, police.</span></div></div>",
+      "css": ".ds-choices { display: grid; grid-template-columns: 1fr 1fr; width: 560px; border: 1.5px solid var(--ink); border-radius: 3px; } .ds-choice { display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; align-content: start; min-height: 132px; padding: 20px; border: 0; background: var(--paper-hi); color: var(--ink); font: 400 14px/1.45 var(--f-body); text-align: left; } .ds-choice + .ds-choice { border-left: 1px dashed var(--line-strong); } button.ds-choice { cursor: pointer; transition: background-color 160ms var(--ease-out); } button.ds-choice:hover { background: var(--amber); } button.ds-choice:focus-visible { outline: 2px solid var(--rust); outline-offset: 2px; } .ds-cico { grid-row: span 2; width: 32px; height: 32px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: square; stroke-linejoin: miter; } .ds-ct { font: 700 24px/1 var(--f-label); letter-spacing: 0.04em; text-transform: uppercase; } .ds-cx { color: var(--ink-2); } .ds-soon { background: transparent; color: var(--ink-3); } .ds-soon .ds-cx { color: var(--ink-3); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Palubní lístek a odletová tabule",
+    "overview": "Sestava je let, díly jsou cestující. Nastavení se čte jako segmentovaný palubní lístek: velký kód dílu jako číslo brány, datový útržek s rozměry, perforace a pod ní segmenty parametrů, každý se štítkem rozsahu (DÍL / TRASA / SESTAVA). Co se tiskne, je tmavá odletová tabule s kódy, počty, stavem a stažením STL po řádcích. Svět je teplý a tištěný: inkoustově hnědá na krémovém papíře, jantar jako barva filamentu a jediná výrazná akce.\n\nHustota je pracovní, ne prezentační. 3D scéna drží největší plochu, lístek má pevnou šířku a tabule je dole přes šířku scény. Hloubka vzniká plochým papírem, vlasovými linkami, čárkovanou perforací a kontrastem papír / inkoust, nikdy stínem. Odmítnutý protipól: šedý panel se zásobníkem karet nad sebou, generický vzhled, pastelové barvy dílů a Unicode ikonky.",
+    "keyCharacteristics": [
+      "Dvě plochy: světlý papír (scéna, lístek, úvodní okno) a tmavý inkoust (horní pruh, tabule, hlavička dialogu).",
+      "Kondenzovaný grotesk velkými písmeny pro štítky, kódy a nadpisy; monospace jen pro čísla.",
+      "Jantar je filament a hlavní akce; rez výhradně výběr a změna.",
+      "Segmenty oddělené linkami a perforací, žádné karty v kartách, žádné gradienty, žádné šedé.",
+      "Ikony jako vlastní SVG sprite s tahem 1,6 px, hranaté konce a spoje."
+    ],
+    "rules": [
+      { "name": "The Rust Means Change Rule", "body": "Rez se objeví jen tam, kde je něco vybrané nebo změněné (nebo zaostřené). Ne jako dekorace, ne jako druhá akcentová barva, ne pro nadpisy.", "section": "colors" },
+      { "name": "The Rust Is A Mark Rule", "body": "Rez nese obrys, výplň, značku nebo prstenec, ne malý text na papíře: rez na papíře má kontrast jen asi 2,9:1, na světlém papíře 3,3:1. Text stavu nebo akce zůstává inkoustový (na papíře) nebo papírový (na inkoustu) a rez ho označí kolem.", "section": "colors" },
+      { "name": "The No Grey Rule", "body": "Každá neutrální hodnota je inkoust v jiné síle nebo průhlednosti. Nová neutrální barva se odvozuje z `ink`, nikdy z šedé.", "section": "colors" },
+      { "name": "The Amber Is Filament Rule", "body": "Díly ve 3D mají vždy jantarovou barvu, kryty papírovou. Rozlišení typů dílů barvou neexistuje; rozlišují je kódy a ikony.", "section": "colors" },
+      { "name": "The Mono Is For Numbers Rule", "body": "JetBrains Mono jen pro rozměry, počty, jednotky a kódy. Popisky, i krátké, jsou Barlow nebo Barlow Semi Condensed.", "section": "typography" },
+      { "name": "The Uppercase Is Condensed Rule", "body": "Velká písmena patří jen Barlow Semi Condensed, vždy s prostrkáním 0.04–0.12em. Barlow i mono zůstávají v normální velikosti písmen.", "section": "typography" },
+      { "name": "The Flat Paper Rule", "body": "Žádný rozptýlený stín na ohraničené ploše. Co má vystoupit, dostane inkoustový rám, světlejší papír nebo inkoustovou plochu.", "section": "elevation" },
+      { "name": "The Perforation Rule", "body": "Část lístku se od další odděluje čárkovanou linkou (2px dashed `line-strong` u trhací linky, 1px dashed mezi volbami), ne mezerou ani kartou.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do barvit díly ve 3D jantarem a kryty papírem; vybraný díl rezí.",
+      "Do psát kódy, štítky a nadpisy Barlow Semi Condensed velkými písmeny s prostrkáním 0.04–0.12em.",
+      "Do používat JetBrains Mono pouze pro rozměry, počty, jednotky a kódy.",
+      "Do oddělovat části lístku vlasovými linkami a čárkovanou perforací; skupiny voleb dělit uvnitř jednoho rámu.",
+      "Do u každého nastavení uvést rozsah („Platí pro“, štítek záložky), na kolik dílů změna dopadne.",
+      "Do kreslit ikony jako SVG v spritu s tahem 1,6 px, hranatými konci a ostrými spoji.",
+      "Do držet jedno primární jantarové tlačítko na oblast."
+    ],
+    "donts": [
+      "Don't používat rez pro cokoli jiného než výběr, změnu, focus a destruktivní akci.",
+      "Don't psát malý text rezí na papíře; rez je obrys, výplň nebo značka.",
+      "Don't zavádět šedé; neutrální odstíny jsou vždy z inkoustu.",
+      "Don't dávat rozptýlené stíny na ohraničené plochy ani gradienty kamkoli.",
+      "Don't skládat karty do karet ani stohovat samostatné karty nad sebou.",
+      "Don't používat Unicode znaky jako ikony.",
+      "Don't rozlišovat typy dílů barvou ani používat pastelové barvy dílů."
+    ]
+  }
+}

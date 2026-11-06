@@ -26,6 +26,13 @@ Aplikace je navržená jako nástroj pro modulární organizaci domácnosti. Zat
 - **Uzavřené smyčky:** volné konce opačného pohlaví, které na sebe přesně lícují, se spojí automaticky.
 - Sestava se průběžně ukládá do `localStorage`.
 
+### Rozhraní
+- **Horní pruh:** značka MOD, kategorie, stav renderu a tlačítko Nová sestava.
+- **Scéna:** díly jsou v jedné barvě plastu (jantar `#F2A900`), kryty ve světlé `#F9E6A8`, vybraný díl v rezavé `#CC6F00`. Nad každým dílem je kód jeho STL (A, B, C…).
+- **Lístek vpravo** má záložky **Díl / Trasa / Sestava**. Každá záložka nahoře říká, pro kolik dílů nastavení platí. U skupin parametrů je odkaz „Na všech N“, který je použije na celou sestavu.
+- **Tabule K tisku dole:** kód, díl, rozměr, úpravy, počet kusů, stav a STL ke každému unikátnímu dílu, plus Stáhnout vše (ZIP). Nový nebo změněný řádek se překlopí a svítí jako „Změněno“, dokud na něj nenajedeš. Najetí na řádek zvýrazní odpovídající díly ve scéně, klik na řádek díl vybere.
+- **Písma** jsou servírovaná lokálně z `public/vendor/fonts/` (Barlow Semi Condensed, Barlow, JetBrains Mono), kopíruje je `npm run vendor`.
+
 ### Tisková orientace
 - Díly se tisknou dnem na podložce. Čepy, díry a výřezy jsou na svislých stěnách nebo skrz dno, takže se tisknou bez podpor.
 - Kryty jsou v STL otočené vzhůru nohama: deska leží na podložce, límec s čepy je nahoře.
