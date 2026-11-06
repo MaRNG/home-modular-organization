@@ -5,19 +5,25 @@ Nápady na další rozvoj. Nic z toho zatím není rozpracované.
 ## Priorita (doporučené pořadí)
 
 1. **Šablona „Test spoje“:** 2–3 mini díly (~30 mm) + kryt s různou vůlí (0,15 / 0,2 / 0,3 mm) a výškou čepu. Po vytištění vybrat, co sedí, a nastavit jako výchozí. Spoje jsou zatím ověřené jen geometricky.
-2. **Uchycení a koncovka.** Bez nich se trasa nedá reálně namontovat (viz Nové díly 1 a 2).
+2. **Koncovka.** Bez ní trasa nemá čistý konec (viz Nové díly 2). Šroubky a páska 3M už jsou.
 3. **Export na tiskovou desku (3MF)** (viz Aplikace 1). Kontrola tiskové plochy už je hotová.
 
 ## Nové díly
 
-1. **Uchycení na zeď a pod desku stolu:** otvory se zahloubením pro vrut ve dně (průměr, rozteč); kapsa pro oboustrannou pásku 3M; klip na desku stolu (tloušťka 18–25 mm).
+1. **Uchycení pod desku stolu klipem:** klip na desku stolu (tloušťka 18–25 mm). Otvory pro šroubky a kapsa pro pásku 3M už jsou; případně šroubky i uprostřed dlouhých dílů.
 2. **Koncovka:** plná záslepka, nebo čelo s otvorem/výřezem pro kabel daného průměru, případně s pružnými jazýčky.
 3. **Boční vývod (odbočka T):** otvor v boku s krytkou pro vyvedení kabelu ze žlabu.
 4. **Redukce:** přechod mezi šířkami/výškami se šikmým přechodem místo schodu.
 5. **Ohyb pod jiným úhlem:** zatáčka 45°; ohyb nahoru/dolů s nastavitelným úhlem.
-6. **Vnitřní přepážka:** oddělení silových a datových kabelů (zasunovací lišta do drážek, nebo parametr „počet komor“).
-7. **Držák zásuvkové lišty / zdroje:** vana nebo klec pod stůl, napojitelná na žlab.
-8. **Kabelové klipy a hřebínky:** jednotlivé příchytky na stěnu nebo hranu stolu pro 1–N kabelů daného průměru.
+6. **Držák zásuvkové lišty / zdroje:** vana nebo klec pod stůl, napojitelná na žlab.
+7. **Kabelové klipy a hřebínky:** jednotlivé příchytky na stěnu nebo hranu stolu pro 1–N kabelů daného průměru.
+
+## Vzhled
+
+1. **Obloukové zatáčky:** zatáčka L a ohyby s vnitřním poloměrem (parametr, 0 = dnešní ostrý roh); šetrnější k HDMI a napájecím kabelům.
+2. **Stínová spára u spojů:** drážka do V po obvodu na koncích dílů, aby spoj vypadal jako záměrný předěl; díry po čepech zahloubené.
+3. **Kryt s přesahem:** deska krytu o 0,5 mm širší než žlab, se stínovou mezerou.
+4. **Barvy žlabu a krytu v náhledu:** volba barev podle filamentu.
 
 ## Aplikace
 
