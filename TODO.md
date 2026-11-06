@@ -35,3 +35,17 @@ Nápady na další rozvoj. Nic z toho zatím není rozpracované.
 6. **Sdílení odkazem:** sestava zakódovaná v URL (pojmenované sestavy a export/import JSON už jsou hotové).
 7. **Přesun/otočení sestavy a změna kořene:** dnes nejde smazat první díl ani napojit díl „před“ něj, pokud tam není volný port.
 8. **Rozdělení dlouhého dílu:** když se díl nevejde na podložku, nabídnout jeho rozdělení na dva (u rovné trasy navýšit počet dílů).
+
+## Další kategorie MOD
+
+Doporučené pořadí: šuplíky, pak nástěnný systém. Každá kategorie převezme platformu z `docs/PLATFORM.md` (tiskárny a kontrola podložky, knihovna sestav, import/export, průvodce, tabule K tisku s kódy).
+
+1. **Organizéry do šuplíků (doporučeno jako další):** zadá se vnitřní rozměr šuplíku a ten se rozdělí na přihrádky (příbory, kancelář, nářadí, kosmetika). Editor jako 2D mřížka, buňky se slučují do větších přihrádek. Velký organizér se automaticky rozdělí na moduly, které se vejdou na tiskárnu, a moduly se spojí zacvaknutím. Převezme profil se zkosením a zaoblením a přepážky; navíc zaoblené dno přihrádky, výřez na prst a štítek na popisek.
+2. **Gridfinity-kompatibilní krabičky:** otevřený standard s mřížkou 42 mm. Parametrické základové desky (rozdělené podle tiskárny) a krabičky s přihrádkami.
+3. **Nástěnný systém:** lišta na zeď a na ni zasunuté moduly (háček, police, držák na nářadí, kelímek, držák nabíječek a ovladačů). Nový typ spoje: zasunutí do drážky lišty, např. rybina. Navazuje na kabelové žlaby (kabely vedené ke stanici nabíječek).
+4. **Držáky pod desku stolu:** vana na prodlužovačku a zdroje, držák sluchátek, ovladače nebo hubu, háček na tašku; napojitelné na žlab. Sdílí klip na desku stolu (viz Nové díly 1 a 6).
+5. **Stohovatelné boxy a regály:** krabice do skříně se zámkem ve dně pro stohování, volitelné víko a čelní výřez. U velkých krabic hlídat velikost podložky a délku tisku.
+
+Nevhodné pro MOD: nábytek a velké nosné police (3D tisk se na ně nehodí) a čistě dekorativní předměty (nemají parametrickou a modulární logiku).
+
+**Příprava společného kódu:** přepážky, uchycení (šroubky, páska 3M), vzory výřezů (obdélník, zaoblené, voština), průřez se zkosením a zaoblením a tahové písmo kódu přesunout z `public/cable.scad` do sdílené knihovny `public/core/*.scad`, aby je další kategorie nepsaly znovu.
