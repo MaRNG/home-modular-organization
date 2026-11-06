@@ -346,8 +346,12 @@ button { font: inherit; color: inherit; }
 .port-menu[hidden] { display: none; }
 
 .port-menu-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--u);
   margin: 0;
-  padding: 8px 10px 6px;
+  padding: 4px 4px 4px 10px;
   border-bottom: 1px dashed var(--line-strong);
   font: 600 12px/1 var(--f-label);
   letter-spacing: 0.1em;
@@ -355,7 +359,17 @@ button { font: inherit; color: inherit; }
   color: var(--ink-2);
 }
 
-.port-menu button {
+.port-menu .port-menu-close {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  min-height: 28px;
+  padding: 0;
+  border: 1.5px solid var(--ink);
+  font: 500 20px/1 var(--f-body);
+}
+
+.port-menu button[data-add] {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -369,8 +383,9 @@ button { font: inherit; color: inherit; }
   cursor: pointer;
 }
 
-.port-menu button small { margin-left: auto; color: var(--ink-3); font-size: 12px; }
+.port-menu button[data-add] small { margin-left: auto; color: var(--ink-3); font-size: 12px; }
 .port-menu button:hover, .port-menu button:focus-visible { background: var(--amber); outline: 0; }
+.port-menu .port-menu-close:hover, .port-menu .port-menu-close:focus-visible { background: var(--ink); color: var(--paper); }
 .port-menu button:hover small, .port-menu button:focus-visible small { color: var(--ink); }
 
 /* --- Lístek (nastavení) ----------------------------------------------------------- */

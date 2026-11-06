@@ -747,6 +747,7 @@ function rebuildPortMarkers() {
       portGroup.add(marker);
     });
   }
+  paintMarkers();
 }
 
 // Přerenderuje tělo a kryt dílu, pokud neodpovídají aktuálním parametrům.
@@ -783,7 +784,8 @@ function refreshGeometry(part, delay = 0) {
 }
 
 function fitView() {
-  const box = new THREE.Box3().setFromObject(partGroup);
+  // I šipky: nově vložený díl ještě nemusí mít vyrenderovanou geometrii.
+  const box = new THREE.Box3().setFromObject(partGroup).expandByObject(portGroup);
   if (box.isEmpty()) return;
   const center = box.getCenter(new THREE.Vector3());
   const size = box.getSize(new THREE.Vector3()).length();
@@ -821,9 +823,8 @@ renderer.domElement.addEventListener('pointerdown', (e) => {
 renderer.domElement.addEventListener('pointermove', (e) => {
   const marker = markerOf(pick(e, portGroup.children));
   if (marker === hovered) return;
-  hovered?.children.forEach((m) => (m.material = markerMaterial));
-  marker?.children.forEach((m) => (m.material = markerHover));
   hovered = marker;
+  paintMarkers();
   renderer.domElement.style.cursor = marker || pick(e, partGroup.children) ? 'pointer' : '';
 });
 
@@ -832,37 +833,100 @@ renderer.domElement.addEventListener('pointerup', (e) => {
   if (!downAt || Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y) > 4) return;
   const marker = markerOf(pick(e, portGroup.children));
   if (marker) {
-    openPortMenu(marker.userData.port, e);
+    openPortMenu(marker.userData.port, { x: e.clientX, y: e.clientY });
     return;
   }
-  closePortMenu();
+  // Rozpracované řetězení zůstává otevřené, zavírá se jen křížkem nebo Esc.
+  if (!chain) closePortMenu();
   const hit = pick(e, partGroup.children);
   select(hit ? hit.userData.partId : null);
 });
 
-function openPortMenu(port, event) {
+// Řetězení: po vložení dílu se nabídka hned otevře znovu u jeho volného konce,
+// dokud ji uživatel nezavře křížkem (nebo Esc). chain = počet vložených dílů.
+let chain = 0;
+
+const markerFor = (port) =>
+  portGroup.children.find((m) => m.userData.port.partId === port.partId && m.userData.port.index === port.index);
+
+function paintMarkers() {
+  const active = menuPort && markerFor(menuPort);
+  for (const m of portGroup.children) {
+    const mat = m === active || m === hovered ? markerHover : markerMaterial;
+    m.children.forEach((c) => (c.material = mat));
+  }
+}
+
+// Bod šipky na obrazovce (souřadnice okna), nebo null, když je mimo scénu.
+function markerScreen(marker) {
+  const v = marker.getWorldPosition(new THREE.Vector3()).project(camera);
+  if (v.z > 1 || Math.abs(v.x) > 0.95 || Math.abs(v.y) > 0.95) return null;
+  const r = viewport.getBoundingClientRect();
+  return { x: r.left + ((v.x + 1) / 2) * r.width, y: r.top + ((1 - v.y) / 2) * r.height };
+}
+
+function openPortMenu(port, at) {
   menuPort = port;
   const rect = viewport.getBoundingClientRect();
   portMenu.hidden = false;
-  const x = Math.min(event.clientX - rect.left + 8, rect.width - portMenu.offsetWidth - 8);
-  const y = Math.min(event.clientY - rect.top + 8, rect.height - portMenu.offsetHeight - 8);
+  portMenu.querySelector('.port-menu-title span').textContent =
+    chain ? `Navázat dalším dílem · vloženo ${chain}` : 'Připojit díl';
+  // Nabídka vedle šipky, aby šipka zůstala vidět.
+  const x = Math.max(8, Math.min(at.x - rect.left + 24, rect.width - portMenu.offsetWidth - 8));
+  const y = Math.max(8, Math.min(at.y - rect.top + 16, rect.height - portMenu.offsetHeight - 8));
   portMenu.style.left = `${x}px`;
   portMenu.style.top = `${y}px`;
+  paintMarkers();
+  portMenu.querySelector('button[data-add]').focus({ preventScroll: true });
 }
 
 function closePortMenu() {
   portMenu.hidden = true;
   menuPort = null;
+  chain = 0;
+  paintMarkers();
+}
+
+// Volný konec, kterým nový díl pokračuje: protější konec, u křižovatky ten naproti.
+function continuePort(part) {
+  const n = TYPES[part.type].ports(part.params).length;
+  const preferred = n === 4 ? (part.port + 2) % 4 : (part.port + 1) % n;
+  const free = [...Array(n).keys()].filter((i) => !part.used.has(i));
+  return free.includes(preferred) ? preferred : free[0];
 }
 
 portMenu.addEventListener('click', (e) => {
-  const btn = e.target.closest('button');
+  if (e.target.closest('[data-close]')) {
+    closePortMenu();
+    return;
+  }
+  const btn = e.target.closest('button[data-add]');
   if (!btn || !menuPort) return;
-  const part = addPart(btn.dataset.add, menuPort.partId, menuPort.index, Number(btn.dataset.port), 'right' in btn.dataset);
-  closePortMenu();
+  // Konec, na který se připojuje, tím zanikne; řetězení (chain) pokračuje.
+  const from = menuPort;
+  menuPort = null;
+  const part = addPart(btn.dataset.add, from.partId, from.index, Number(btn.dataset.port), 'right' in btn.dataset);
   changed();
   refreshGeometry(part);
   select(part.id);
+  const index = continuePort(part);
+  if (index === undefined) {
+    closePortMenu();
+    return;
+  }
+  chain++;
+  const port = { partId: part.id, index };
+  let marker = markerFor(port);
+  let at = marker && markerScreen(marker);
+  if (marker && !at) {
+    // Trasa utekla ze záběru: zabrat celou sestavu a šipku najít znovu.
+    fitView();
+    controls.update();
+    camera.updateMatrixWorld();
+    at = markerScreen(marker);
+  }
+  const r = viewport.getBoundingClientRect();
+  openPortMenu(port, at ?? { x: r.left + 16, y: r.top + 16 });
 });
 
 document.addEventListener('keydown', (e) => {
@@ -1399,6 +1463,8 @@ function changed() {
   syncRun();
   layout();
   syncScene();
+  // Konec, u kterého je otevřená nabídka, mezitím zmizel (smazaný díl).
+  if (menuPort && !markerFor(menuPort)) closePortMenu();
   renderRunPanel();
   renderPrintList();
   renderTabs();
@@ -1720,7 +1786,7 @@ const TOUR_STEPS = [
   { target: '#viewport', title: '3D náhled sestavy',
     html: '<b>Klik</b> na díl ho vybere, <b>tažením</b> sestavu otočíš a <b>kolečkem</b> přiblížíš. Písmeno nad dílem je kód jeho STL na tabuli K tisku.' },
   { target: portMarkerRect, title: 'Připojení dalšího dílu',
-    html: 'Tmavá <b>šipka</b> na volném konci otevře nabídku dílů: rovný, zatáčky, křižovatka, ohyb nahoru a dolů a díl S. Nový díl převezme rozměry a úpravy dílu, na který se připojuje.' },
+    html: 'Tmavá <b>šipka</b> na volném konci otevře nabídku dílů: rovný, zatáčky, křižovatka, ohyb nahoru a dolů a díl S. Po vložení se nabídka otevře rovnou u dalšího konce, takže trasu skládáš díl po dílu, dokud ji nezavřeš <b>křížkem</b>.' },
   { target: '#fit', side: 'left', title: 'Celá sestava',
     text: 'Když se ve scéně ztratíš, tímto tlačítkem se zobrazí celá sestava.' },
   { target: '.pass-tabs', side: 'left', title: 'Nastavení',
