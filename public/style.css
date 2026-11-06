@@ -1034,7 +1034,7 @@ button.choice:hover .choice-text { color: var(--ink); }
 
 .part-picks {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   border: 1.5px solid var(--ink);
   border-radius: var(--radius);
 }

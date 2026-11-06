@@ -60,7 +60,23 @@ const TYPES = {
     sym: 1,
     ports: (p) => [flat(-p.arm, 0, 180), { p: [0, 0, -p.arm], d: [0, 0, -1], u: [1, 0, 0] }],
   },
+  // Přesazení do strany: vstup a výstup rovnoběžně, mezi nimi dva oblouky.
+  // Doleva = výstup posunutý do +y (vlevo ve směru toku od portu 0).
+  s: {
+    label: 'Díl S',
+    lidLabel: 'díl S',
+    slug: 'esko',
+    icon: 'i-s-left',
+    sym: 2,
+    ports: (p) => {
+      const o = sOffset(p);
+      return [flat(-p.len / 2, -o / 2, 180), flat(p.len / 2, o / 2, 0)];
+    },
+  },
 };
+
+// Přesazení dílu S se znaménkem; v cable.scad jde jako `arm` (záporné = doprava).
+const sOffset = (p) => (p.s_right ? -p.off : p.off);
 
 const isBend = (type) => type === 'up' || type === 'down';
 
@@ -75,6 +91,17 @@ function minArm(part) {
   return Math.ceil((p.w + 2 * g.t) / 2 + keepLen(p) + 1);
 }
 const minLen = (p) => Math.ceil(2 * keepLen(p) + 8);
+
+// Díl S: nástavce na koncích (= s_lead() v cable.scad) a oblouky s poloměrem aspoň
+// W/2 + 3 mm a úhlem nejvýš 90°. Poloměr dvou oblouků je (dx² + o²) / (4o).
+function minLenS(p) {
+  const lead = keepLen(p) + 8;
+  const rMin = (p.w + 2 * state.globals.t) / 2 + 3;
+  const dx = Math.max(p.off, Math.sqrt(Math.max(0, 4 * p.off * rMin - p.off * p.off)));
+  return Math.ceil(2 * lead + dx + 1);
+}
+
+const lenMin = (part) => (part.type === 's' ? minLenS(part.params) : minLen(part.params));
 const maxNotch = (p) => Math.floor(p.h / 2);
 
 // Parametry dílu po skupinách; každou skupinu jde přenést na všechny díly.
@@ -85,7 +112,9 @@ const PART_GROUPS = [
     params: {
       w: { label: 'Vnitřní šířka', min: 14, max: 80, step: 1 },
       h: { label: 'Vnitřní výška', min: 10, max: 60, step: 1 },
-      len: { label: 'Délka', min: (part) => minLen(part.params), max: 300, step: 5, only: ['straight'] },
+      len: { label: 'Délka', min: lenMin, max: 300, step: 5, only: ['straight', 's'] },
+      off: { label: 'Přesazení do strany', min: 5, max: 150, step: 1, only: ['s'] },
+      s_right: { label: 'Přesazení doprava', type: 'bool', only: ['s'] },
       arm: { label: 'Délka ramene (od středu)', min: minArm, max: 200, step: 1, only: ['corner', 'cross', 'up', 'down'] },
     },
   },
@@ -133,7 +162,7 @@ const PART_GROUPS = [
 ];
 
 const DEFAULT_PARAMS = {
-  w: 30, h: 20, ce: 0,
+  w: 30, h: 20, ce: 0, off: 30, s_right: false,
   slots: false, slot_w: 6, slot_bar: 4, slot_m: 2, slot_a: 45,
   floor_slots: false, floor_slot_w: 4, floor_slot_bar: 6, floor_slot_m: 4, floor_slot_a: 45,
   lid: false, lid_slots: false, lid_slot_w: 6, lid_slot_bar: 6, lid_slot_m: 2, lid_slot_a: 45,
@@ -167,10 +196,8 @@ function emptyState() {
 // Nová sestava začínající jedním dílem.
 function singlePartState(type) {
   const s = emptyState();
-  const params = { ...DEFAULT_PARAMS };
-  const part = { id: s.nextId++, type, params, parent: null };
-  if (type === 'straight') params.len = 80;
-  else params.arm = Math.max(40, minArm(part));
+  const part = { id: s.nextId++, type, params: { ...DEFAULT_PARAMS }, parent: null };
+  initSize(part);
   s.parts.push(part);
   return s;
 }
@@ -208,14 +235,26 @@ function saveState() {
 
 const partById = (id) => state.parts.find((p) => p.id === id);
 
-function addPart(type, parentId, parentPort, ownPort) {
+function addPart(type, parentId, parentPort, ownPort, right = false) {
   const parent = partById(parentId);
-  const { len, arm, ...params } = parent.params;
+  const { len, arm, off, s_right, ...params } = parent.params;
   const part = { id: state.nextId++, type, params, parent: parentId, parentPort, port: ownPort };
-  if (type === 'straight') params.len = 80;
-  else params.arm = Math.max(40, minArm(part));
+  initSize(part, right);
   state.parts.push(part);
   return part;
+}
+
+// Výchozí velikost nového dílu podle typu.
+function initSize(part, right = false) {
+  const p = part.params;
+  if (part.type === 'straight') {
+    p.len = 80;
+  } else if (part.type === 's') {
+    Object.assign(p, { off: 30, s_right: right });
+    p.len = Math.max(140, lenMin(part));
+  } else {
+    p.arm = Math.max(40, minArm(part));
+  }
 }
 
 function removePart(id) {
@@ -287,7 +326,7 @@ function clampSize(part) {
   p.ce = Math.min(p.ce, maxNotch(p));
   if (p.arm !== undefined) p.arm = Math.max(p.arm, minArm(part));
   // Délky dílů rovné trasy hlídá syncRun() přes počet dílů.
-  if (p.len !== undefined && !isRunPart(part)) p.len = Math.max(p.len, minLen(p));
+  if (p.len !== undefined && !isRunPart(part)) p.len = Math.max(p.len, lenMin(part));
 }
 
 // Rámec portu: x = směr ven, z = otevřená strana kanálu, počátek ve středu čela.
@@ -375,7 +414,10 @@ function canonical(part) {
 // ---------------------------------------------------------------------------
 // Parametry pro OpenSCAD. Do klíče cache jde jen to, co mění geometrii.
 
-const sizeParam = (part) => (part.type === 'straight' ? { len: part.params.len } : { arm: part.params.arm });
+const sizeParam = (part) =>
+  part.type === 'straight' ? { len: part.params.len }
+    : part.type === 's' ? { len: part.params.len, arm: sOffset(part.params) }
+      : { arm: part.params.arm };
 
 // Přidá parametry skupiny, jen když je zapnutá (jinak by měnily klíč cache).
 function enabled(params, on, keys) {
@@ -769,7 +811,7 @@ function closePortMenu() {
 portMenu.addEventListener('click', (e) => {
   const btn = e.target.closest('button');
   if (!btn || !menuPort) return;
-  const part = addPart(btn.dataset.add, menuPort.partId, menuPort.index, Number(btn.dataset.port));
+  const part = addPart(btn.dataset.add, menuPort.partId, menuPort.index, Number(btn.dataset.port), 'right' in btn.dataset);
   closePortMenu();
   changed();
   refreshGeometry(part);
@@ -890,6 +932,10 @@ function variant(part) {
     const m = [...g].filter((x) => x === 'M').length;
     return { label: `${m}× čepy, ${4 - m}× otvory`, slug: `-${m}cepy` };
   }
+  if (part.type === 's') {
+    return part.params.s_right ? { label: 'doprava', slug: `-doprava-${part.params.off}` }
+                               : { label: 'doleva', slug: `-doleva-${part.params.off}` };
+  }
   // Ohyb s čepy dole a s čepy nahoře jsou dva různé díly.
   if (isBend(part.type)) {
     return g[0] === 'F' ? { label: 'čepy na svislém konci', slug: '-cepy-svisle' }
@@ -898,7 +944,10 @@ function variant(part) {
   return { label: '', slug: '' };
 }
 
-const sizeLabel = (part) => (part.type === 'straight' ? `délka ${part.params.len} mm` : `rameno ${part.params.arm} mm`);
+const sizeLabel = (part) =>
+  part.type === 'straight' ? `délka ${part.params.len} mm`
+    : part.type === 's' ? `délka ${part.params.len} mm, přesazení ${part.params.off} mm`
+      : `rameno ${part.params.arm} mm`;
 
 function bodyLabel(part) {
   const v = variant(part).label;
@@ -907,8 +956,10 @@ function bodyLabel(part) {
     (part.params.lid ? ', pro kryt' : '');
 }
 
+const lidVariant = (part) => (part.type === 's' ? variant(part) : { label: '', slug: '' });
+
 const lidLabel = (part) =>
-  `Kryt – ${TYPES[part.type].lidLabel}, šířka ${part.params.w}, ${sizeLabel(part)}` +
+  `Kryt – ${TYPES[part.type].lidLabel}${lidVariant(part).label ? ` (${lidVariant(part).label})` : ''}, šířka ${part.params.w}, ${sizeLabel(part)}` +
   (part.params.ce ? ', zkosení' : '') + (part.params.lid_slots ? ', s výřezy' : '');
 
 const sizeSlug = (part) => part.params.len ?? part.params.arm;
@@ -916,7 +967,7 @@ const bodyFile = (part) =>
   `${TYPES[part.type].slug}${variant(part).slug}_${part.params.w}x${part.params.h}_${sizeSlug(part)}mm` +
   `${part.params.ce ? '_zkos' : ''}${part.params.slots ? '_bok' : ''}${part.params.floor_slots ? '_dno' : ''}${part.params.lid ? '_kryt' : ''}`;
 const lidFile = (part) =>
-  `kryt-${TYPES[part.type].slug}_${part.params.w}_${sizeSlug(part)}mm` +
+  `kryt-${TYPES[part.type].slug}${lidVariant(part).slug}_${part.params.w}_${sizeSlug(part)}mm` +
   `${part.params.ce ? '_zkos' : ''}${part.params.lid_slots ? '_vyrezy' : ''}`;
 
 function renderPartPanel() {
@@ -1086,8 +1137,9 @@ let boardPrimed = false;
 const codeAt = (i) => (i < 26 ? String.fromCharCode(65 + i) : codeAt(Math.floor(i / 26) - 1) + String.fromCharCode(65 + (i % 26)));
 
 function sizeText(part, lid) {
-  const { w, h, len, arm } = part.params;
-  const size = part.type === 'straight' ? `×${fmt(len)}` : ` · R${arm}`;
+  const { w, h, len, arm, off } = part.params;
+  const size = part.type === 'straight' ? `×${fmt(len)}`
+    : part.type === 's' ? `×${fmt(len)} · posun ${off}` : ` · R${arm}`;
   return lid ? `${w}${size}` : `${w}×${h}${size}`;
 }
 
@@ -1097,7 +1149,8 @@ function bodyMods(part) {
     p.lid && 'pro kryt'].filter(Boolean).join(' · ');
 }
 
-const lidMods = (part) => [part.params.ce && 'zkosení', part.params.lid_slots && 'výřezy'].filter(Boolean).join(' · ');
+const lidMods = (part) =>
+  [lidVariant(part).label, part.params.ce && 'zkosení', part.params.lid_slots && 'výřezy'].filter(Boolean).join(' · ');
 
 function buildPrintList() {
   const items = new Map();
@@ -1110,7 +1163,8 @@ function buildPrintList() {
   };
   for (const part of state.parts) {
     add(bodyDefs(part), part, {
-      kind: 'body', icon: TYPES[part.type].icon, name: TYPES[part.type].label,
+      kind: 'body', icon: part.type === 's' && part.params.s_right ? 'i-s-right' : TYPES[part.type].icon,
+      name: TYPES[part.type].label,
       size: sizeText(part, false), mods: bodyMods(part), label: bodyLabel(part), file: bodyFile(part),
     });
   }
@@ -1420,6 +1474,7 @@ const START_PARTS = [
   ['cross', 'Křižovatka'],
   ['up', 'Nahoru'],
   ['down', 'Dolů'],
+  ['s', 'Díl S'],
 ];
 
 function openStart(step = 'category') {
